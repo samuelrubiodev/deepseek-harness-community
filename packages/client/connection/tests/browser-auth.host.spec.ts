@@ -414,4 +414,32 @@ describe('BrowserAuth', () => {
     expect(res5.state.status).toBe(401)
     expect(warnings).toContain('client-connection: index authorization failed (401): missing Cookie header for authority "127.0.0.1:3080"')
   })
+
+  it('logs consecutive identical index rejections once while still answering every request with 401', async () => {
+    const store = new RecordCredentials()
+    const warnings: string[] = []
+    const auth = await BrowserAuth.create({}, credentials(store), 30, false, { warn: (msg) => { warnings.push(msg) } })
+
+    // The health probe challenges / without a Cookie repeatedly; only the first
+    // occurrence of a reason is logged, but every request still gets its 401.
+    for (let probe = 0; probe < 3; probe++) {
+      const res = response()
+      expect(auth.authorizeIndex(request('/'), res.value)).toBe(false)
+      expect(res.state.status).toBe(401)
+    }
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('missing Cookie header for authority "127.0.0.1:3080"')
+
+    // A different reason is logged and becomes the new suppression baseline.
+    const other = response()
+    auth.authorizeIndex(request('/', '192.168.1.10:3080'), other.value)
+    expect(other.state.status).toBe(401)
+    expect(warnings).toHaveLength(2)
+
+    // After the reason changes, a repeat of the first one logs again.
+    const again = response()
+    auth.authorizeIndex(request('/'), again.value)
+    expect(again.state.status).toBe(401)
+    expect(warnings).toHaveLength(3)
+  })
 })

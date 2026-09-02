@@ -205,6 +205,8 @@ export interface BrowserAuthLogger {
 export class BrowserAuth {
   private readonly launchToken: string
   private readonly maxAgeMilliseconds: number
+  /** Last written 401 diagnostic; identical consecutive repeats stay silent. */
+  private lastIndexRejection: string | undefined
 
   private constructor(
     processOwner: object,
@@ -366,7 +368,10 @@ export class BrowserAuth {
   }
 
   private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse, reason?: string): void {
-    if (reason !== undefined) {
+    // Health probes re-challenge `/` every interval with the same reason; only
+    // the first occurrence of each consecutive diagnostic is worth logging.
+    if (reason !== undefined && reason !== this.lastIndexRejection) {
+      this.lastIndexRejection = reason
       if (this.logger !== undefined) {
         this.logger.warn(`client-connection: index authorization failed (401): ${reason}`)
       }
