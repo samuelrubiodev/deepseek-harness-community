@@ -8,7 +8,7 @@ import type { IndexInjection, WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
-import { BrowserAuth } from './browser-auth.ts'
+import { BrowserAuth, type BrowserAuthMode } from './browser-auth.ts'
 import { HostConnectionService } from './rpc-host.ts'
 
 export type {
@@ -50,6 +50,8 @@ export {
 export {
   BrowserAuth,
   type BrowserAuthLogger,
+  type BrowserAuthMode,
+  type BrowserAuthOptions,
   type BrowserAuthResult,
 } from './browser-auth.ts'
 
@@ -95,13 +97,30 @@ export interface ConnectionConfig {
   maxRequestBodyBytes?: number
   /** Whether to trust standard X-Forwarded-Host and X-Forwarded-Proto reverse proxy headers. */
   reverseProxy?: boolean
+  /**
+   * How browsers authenticate: `token` keeps the launch-token exchange and
+   * signed session cookie; `none` lets any request that passes the Host/Origin
+   * trust fence reach the UI and API with no token or cookie. The
+   * `DSH_AUTH_MODE` environment variable is the fallback when unset.
+   */
+  authMode?: 'token' | 'none'
+  /**
+   * Fixed access token served at `/?token=<value>`, replacing the random
+   * per-process launch token so the sign-in URL survives restarts. The
+   * `DSH_AUTH_TOKEN` environment variable is the fallback when unset.
+   */
+  authToken?: string
 }
 
 export const Config: z<ConnectionConfig> = z.object({
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
-  reverseProxy: z.boolean().default(false),
+  // Bare (optional) so the documented env fallbacks below reach the plugin
+  // instead of being shadowed by a schema default the Loader always applies.
+  reverseProxy: z.boolean(),
+  authMode: z.union([z.const('token'), z.const('none')]),
+  authToken: z.string(),
 })
 
 /**
@@ -117,16 +136,32 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   const reverseProxy = config?.reverseProxy ?? (process.env.DSH_REVERSE_PROXY === 'true' || process.env.DSH_REVERSE_PROXY === '1')
+  const authMode: BrowserAuthMode = config?.authMode ?? (process.env.DSH_AUTH_MODE === 'none' ? 'none' : 'token')
+  // A blank DSH_AUTH_TOKEN (the .env.example placeholder) means "not set";
+  // an explicit blank authToken in composition is a misconfiguration and fails below.
+  const envToken = process.env.DSH_AUTH_TOKEN?.trim()
+  const authToken = config?.authToken ?? (envToken === undefined || envToken === '' ? undefined : envToken)
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
+  if (config?.authToken !== undefined && config.authToken.trim() === '') {
+    throw new Error('client-connection: authToken must not be blank')
+  }
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, reverseProxy, ctx.logger),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, reverseProxy, ctx.logger, {
+      mode: authMode,
+      ...authToken !== undefined && { fixedToken: authToken },
+    }),
     reverseProxy,
   )
+  if (authMode === 'none') {
+    const notice = 'client-connection: browser authentication is DISABLED (authMode "none"); every request whose Host/Origin passes the trust fence reaches the UI and its code-execution tools without a token'
+    ctx.logger.warn(notice)
+    console.warn(notice)
+  }
   const fetchHandler = connection.createSharedFetchHandler(API_PATH)
   const route: WebRoute = {
     kind: 'prefix',

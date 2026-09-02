@@ -339,10 +339,25 @@ export interface ConnectionConfig {
   cookieMaxAgeDays?: number
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
+  /** Whether to trust standard X-Forwarded-Host and X-Forwarded-Proto reverse proxy headers. */
+  reverseProxy?: boolean
+  /**
+   * How browsers authenticate: `token` keeps the launch-token exchange and
+   * signed session cookie; `none` lets any request that passes the Host/Origin
+   * trust fence reach the UI and API with no token or cookie. The
+   * `DSH_AUTH_MODE` environment variable is the fallback when unset.
+   */
+  authMode?: 'token' | 'none'
+  /**
+   * Fixed access token served at `/?token=<value>`, replacing the random
+   * per-process launch token so the sign-in URL survives restarts. The
+   * `DSH_AUTH_TOKEN` environment variable is the fallback when unset.
+   */
+  authToken?: string
 }
 ```
 
-来源：[`packages/client/connection/src/index.ts:55`](../packages/client/connection/src/index.ts)
+来源：[`packages/client/connection/src/index.ts:84`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 

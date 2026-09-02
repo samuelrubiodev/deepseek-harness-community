@@ -442,4 +442,36 @@ describe('BrowserAuth', () => {
     expect(again.state.status).toBe(401)
     expect(warnings).toHaveLength(3)
   })
+
+  it('accepts a fixed token across instances and keeps the cookie flow', async () => {
+    const store = new RecordCredentials()
+    const first = await BrowserAuth.create({}, credentials(store), 30, false, undefined, { fixedToken: 'my-stable-token' })
+    const second = await BrowserAuth.create({}, credentials(store), 30, false, undefined, { fixedToken: 'my-stable-token' })
+
+    const url = first.authenticatedUrl('http://192.168.1.10:3080')
+    expect(new URL(url).searchParams.get('token')).toBe('my-stable-token')
+    // The same URL mints a session on ANY instance: restarts never invalidate it.
+    const login = response()
+    expect(second.authorizeIndex(request('/?token=my-stable-token', '192.168.1.10:3080'), login.value)).toBe(false)
+    expect(login.state.status).toBe(303)
+    const cookie = login.state.headers?.['set-cookie']!.split(';', 1)[0]!
+    expect(second.isAuthenticated(request('/', '192.168.1.10:3080', { cookie }))).toBe(true)
+
+    // Wrong fixed tokens still reject.
+    const bad = response()
+    expect(first.authorizeIndex(request('/?token=guess', '192.168.1.10:3080'), bad.value)).toBe(false)
+    expect(bad.state.status).toBe(401)
+  })
+
+  it('serves index and authenticates requests without token or cookie in none mode', async () => {
+    const store = new RecordCredentials()
+    const auth = await BrowserAuth.create({}, credentials(store), 30, false, undefined, { mode: 'none' })
+
+    expect(auth.authenticatedUrl('http://192.168.1.10:3080')).toBe('http://192.168.1.10:3080/')
+    const res = response()
+    expect(auth.authorizeIndex(request('/'), res.value)).toBe(true)
+    expect(res.state.status).toBeUndefined()
+    expect(auth.isAuthenticated(request('/'))).toBe(true)
+    expect(auth.authenticate({ headers: {} })).toEqual({ authenticated: true })
+  })
 })

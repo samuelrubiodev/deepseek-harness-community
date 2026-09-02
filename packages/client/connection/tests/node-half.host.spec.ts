@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
-import { API_PATH, RpcId, apply, inject, type ClientRequest, type HostConnectionHandle } from '../src/index.ts'
+import { API_PATH, RpcId, apply, inject, type ClientRequest, type ConnectionConfig, type HostConnectionHandle } from '../src/index.ts'
 import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
 import { provideBrowserCredentials } from './browser-credentials.ts'
 
@@ -81,7 +81,7 @@ function fakeResponse(): {
   return { response, state }
 }
 
-async function mounted(config?: { trustedHosts?: string[] }): Promise<{
+async function mounted(config?: ConnectionConfig): Promise<{
   ctx: Context
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
@@ -472,6 +472,60 @@ describe('connection node half', () => {
       .toThrow('invalid or reserved RPC channel')
     await remove()
     await fiber.dispose()
+  })
+})
+
+describe('browser authentication configuration', () => {
+  it('uses the fixed DSH_AUTH_TOKEN for the announced sign-in URL', async () => {
+    process.env.DSH_AUTH_TOKEN = 'stable-env-token'
+    const { connection, dispose } = await mounted()
+    try {
+      const url = new URL(connection.authenticatedUrl('http://harness.example:3080'))
+      expect(url.searchParams.get('token')).toBe('stable-env-token')
+      // The fixed token mints a working session cookie through the normal exchange.
+      const res = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: 'harness.example' }, '/?token=stable-env-token'), res.response)).toBe(false)
+      expect(res.state.status).toBe(303)
+      expect(res.state.headers?.['set-cookie']?.split(';', 1)[0]).toBeDefined()
+    } finally {
+      await dispose()
+      delete process.env.DSH_AUTH_TOKEN
+    }
+  })
+
+  it('treats a blank DSH_AUTH_TOKEN as unset', async () => {
+    process.env.DSH_AUTH_TOKEN = '   '
+    const { connection, dispose } = await mounted()
+    try {
+      const token = new URL(connection.authenticatedUrl('http://harness.example:3080')).searchParams.get('token')
+      expect(token).toBeTruthy()
+      expect(token).not.toBe('')
+    } finally {
+      await dispose()
+      delete process.env.DSH_AUTH_TOKEN
+    }
+  })
+
+  it('skips token and cookie authentication under DSH_AUTH_MODE=none, keeping the trust fence', async () => {
+    process.env.DSH_AUTH_MODE = 'none'
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { routes, connection, dispose } = await mounted({ trustedHosts: ['harness.example'] })
+    try {
+      // An announced URL carries no query token; the index serves unauthenticated.
+      expect(connection.authenticatedUrl('http://harness.example:3080')).toBe('http://harness.example:3080/')
+      // A trusted Host reaches /api with no cookie.
+      const ok = fakeResponse()
+      await routes[0]!.handler(fakeRequest({ host: 'harness.example', origin: 'http://harness.example', 'sec-fetch-site': 'same-origin' }), ok.response)
+      expect(ok.state.status).not.toBe(401)
+      // An untrusted Host still gets 403 — the fence stays authoritative.
+      const blocked = fakeResponse()
+      await routes[0]!.handler(fakeRequest({ host: 'attacker.example' }), blocked.response)
+      expect(blocked.state.status).toBe(403)
+    } finally {
+      await dispose()
+      delete process.env.DSH_AUTH_MODE
+      warnSpy.mockRestore()
+    }
   })
 })
 

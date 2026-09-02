@@ -25,6 +25,12 @@ fi
 if [ "${DSH_REVERSE_PROXY:-}" = "true" ] || [ "${DSH_REVERSE_PROXY:-}" = "1" ]; then
     echo "[dsh-docker] DSH_REVERSE_PROXY=enabled"
 fi
+if [ "${DSH_AUTH_MODE:-}" = "none" ]; then
+    echo "[dsh-docker] WARNING: DSH_AUTH_MODE=none -> browser authentication DISABLED; only the trust fence protects this deployment"
+fi
+if [ -n "${DSH_AUTH_TOKEN:-}" ]; then
+    echo "[dsh-docker] DSH_AUTH_TOKEN=*** fixed sign-in token active; the startup URL keeps the same token across restarts>"
+fi
 
 # If the first argument is "dsh" or starts with "web", or if no arguments passed:
 if [ "$#" -eq 0 ]; then

@@ -71,6 +71,8 @@ All knobs are environment variables, documented exhaustively in [.env.example](.
 | `DSH_PORT` | `3080` | Listening port (also mapped by Compose). |
 | `DSH_TRUSTED_HOSTS` | *(empty)* | Comma-separated hostnames/IPs allowed to reach the Web UI, e.g. `192.168.1.50,harness.lan`. Requests with any other `Host` header get 403. |
 | `DSH_REVERSE_PROXY` | `false` | Set `true` behind Nginx/Caddy/Traefik/tunnels: the proxy's `X-Forwarded-Host` / `X-Forwarded-Proto` then drive trust and cookie authority. |
+| `DSH_AUTH_MODE` | `token` | `token`: sign-in requires `/?token=…`. `none`: no token or cookie — only `DSH_TRUSTED_HOSTS` gates access (see below). |
+| `DSH_AUTH_TOKEN` | *(empty)* | Fixed sign-in token replacing the random per-start launch token, so your URL survives restarts. |
 | `DEEPSEEK_API_KEY` | *(empty)* | DeepSeek API key; can also be entered in the Web UI. |
 | `DSH_HOME` | `/data` | Durable state root inside the container. |
 
@@ -85,6 +87,21 @@ DSH_TRUSTED_HOSTS=192.168.1.50,harness.lan docker compose up -d
 ```
 
 Hosts on that list also get the persistent Settings panel in the Web UI.
+
+### Sign-in token
+
+By default each start mints a random launch token and announces `http://<host>:<port>/?token=…` — read it from the logs every time you restart. Two ways to stop hunting for it:
+
+```sh
+# 1. Stable URL: set your own token once; the sign-in link never changes again.
+DSH_AUTH_TOKEN=my-long-random-secret docker compose up -d
+# open http://192.168.1.50:3080/?token=my-long-random-secret
+
+# 2. No token at all: any host on the trust fence reaches the UI directly.
+DSH_AUTH_MODE=none docker compose up -d
+```
+
+With `DSH_AUTH_MODE=none` the Web UI — including the agent's code-execution tools — is reachable by every machine whose address passes `DSH_TRUSTED_HOSTS`. Use it only on networks you fully control; the Host/Origin trust fence (section above) remains active either way, and this fork's Docker image logs a warning at startup when the mode is off.
 
 ### Reverse proxy
 

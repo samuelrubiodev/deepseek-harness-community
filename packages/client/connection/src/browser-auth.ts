@@ -187,6 +187,25 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
   return secret
 }
 
+/** How a request proves it may reach the browser UI and its API. */
+export type BrowserAuthMode = 'token' | 'none'
+
+/** Deployment choices layered over the process launch-token exchange. */
+export interface BrowserAuthOptions {
+  /**
+   * `token` (default) requires the launch-token exchange and a signed
+   * session cookie. `none` serves the index and authenticates every request
+   * that passes the Host/Origin trust fence without any token or cookie.
+   */
+  mode?: BrowserAuthMode
+  /**
+   * Fixed access token accepted at `/?token=<value>`, replacing the random
+   * per-process launch token so the sign-in URL survives restarts. Must not
+   * appear in logs or error output.
+   */
+  fixedToken?: string
+}
+
 /** Result of verifying browser session authentication. */
 export type BrowserAuthResult =
   | { readonly authenticated: true }
@@ -205,17 +224,19 @@ export interface BrowserAuthLogger {
 export class BrowserAuth {
   private readonly launchToken: string
   private readonly maxAgeMilliseconds: number
+  private readonly mode: BrowserAuthMode
   /** Last written 401 diagnostic; identical consecutive repeats stay silent. */
   private lastIndexRejection: string | undefined
-
   private constructor(
     processOwner: object,
     private readonly secret: Buffer,
     maxAgeDays: number,
     private readonly reverseProxy: boolean = false,
     private readonly logger?: BrowserAuthLogger,
+    options: BrowserAuthOptions = {},
   ) {
-    this.launchToken = processLaunchToken(processOwner)
+    this.mode = options.mode ?? 'token'
+    this.launchToken = options.fixedToken ?? processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
     if (!Number.isSafeInteger(this.maxAgeMilliseconds)
       || !Number.isSafeInteger(Date.now() + this.maxAgeMilliseconds)) {
@@ -231,7 +252,8 @@ export class BrowserAuth {
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
    * @param reverseProxy - whether to trust reverse-proxy headers for authority resolution.
    * @param logger - optional logger for diagnostic authentication warnings.
-   * @returns initialized authentication owner with the process owner's launch token.
+   * @param options - authentication mode and optional fixed access token.
+   * @returns initialized authentication owner with the process or fixed launch token.
    */
   static async create(
     processOwner: object,
@@ -239,20 +261,24 @@ export class BrowserAuth {
     maxAgeDays: number,
     reverseProxy: boolean = false,
     logger?: BrowserAuthLogger,
+    options: BrowserAuthOptions = {},
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays, reverseProxy, logger)
+    return new BrowserAuth(
+      processOwner, await initializeSecret(credentials), maxAgeDays, reverseProxy, logger, options,
+    )
   }
-
   /**
    * Add this process's launch token to the ordinary application root URL.
    * @param baseUrl - canonical browser origin without credentials.
-   * @returns root URL carrying the process token as its sole authentication input.
+   * @returns root URL carrying the process or fixed token, or the clean URL
+   * when authentication is disabled.
    */
   authenticatedUrl(baseUrl: string): string {
     const url = new URL(baseUrl)
     url.pathname = '/'
     url.search = ''
     url.hash = ''
+    if (this.mode === 'none') return url.href
     url.searchParams.set(TOKEN_QUERY, this.launchToken)
     return url.href
   }
@@ -266,6 +292,7 @@ export class BrowserAuth {
    * @returns true only when the caller may serve index.html.
    */
   authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+    if (this.mode === 'none') return true
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
@@ -326,6 +353,7 @@ export class BrowserAuth {
    * @returns detailed authentication result.
    */
   authenticate(request: ConnectionTrustRequest): BrowserAuthResult {
+    if (this.mode === 'none') return { authenticated: true }
     const authority = requestAuthority(request.headers, this.reverseProxy)
     if (authority === undefined) {
       return { authenticated: false, reason: 'missing or unparseable request authority (Host)' }

@@ -31,6 +31,13 @@ services:
       DSH_REVERSE_PROXY: "false"
       DSH_HOME: /data
       WORKSPACE_DIR: /workspace
+      # token (default): sign-in via /?token=... + 30-day cookie.
+      # none: no token/cookie at all — ONLY the DSH_TRUSTED_HOSTS fence protects
+      # the app; never combine with 0.0.0.0 on untrusted networks.
+      DSH_AUTH_MODE: "token"
+      # Fixed sign-in token; set to a long random secret (openssl rand -base64 32
+      # | tr "+/" "-_") to make the URL stable across restarts. Empty = random.
+      DSH_AUTH_TOKEN: ""
       DEEPSEEK_API_KEY: ""
       DEEPSEEK_BASE_URL: ""
     volumes:

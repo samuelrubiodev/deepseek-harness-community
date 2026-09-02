@@ -75,6 +75,8 @@ docker compose logs -f harness
 | `DSH_PORT` | `3080` | 监听端口（Compose 同时映射该端口）。 |
 | `DSH_TRUSTED_HOSTS` | *（空）* | 允许访问 Web UI 的主机名/IP 白名单，如 `192.168.1.50,harness.lan`。携带其他 `Host` 头的请求会得到 403。 |
 | `DSH_REVERSE_PROXY` | `false` | 在 Nginx/Caddy/Traefik/隧道后设为 `true`：代理的 `X-Forwarded-Host` / `X-Forwarded-Proto` 随即决定信任与 Cookie 权威。 |
+| `DSH_AUTH_MODE` | `token` | `token`：登录需携带 `/?token=…`。`none`：无 token 无 Cookie——仅由 `DSH_TRUSTED_HOSTS` 把关（见下文）。 |
+| `DSH_AUTH_TOKEN` | *（空）* | 固定登录令牌，取代随每次启动随机的启动令牌，使你的 URL 在重启后依然有效。 |
 | `DEEPSEEK_API_KEY` | *（空）* | DeepSeek API 密钥；也可在 Web UI 中输入。 |
 | `DSH_HOME` | `/data` | 容器内的持久状态根目录。 |
 
@@ -89,6 +91,21 @@ DSH_TRUSTED_HOSTS=192.168.1.50,harness.lan docker compose up -d
 ```
 
 该列表中的主机还能使用 Web UI 中持久的设置面板。
+
+### 登录令牌
+
+默认情况下，每次启动都会生成随机启动令牌并打印 `http://<host>:<port>/?token=…`——每次重启都要从日志里找它。两种不再找它的方式：设置固定令牌（登录链接从此不再改变），或完全不用令牌（信任白名单内的任何主机直接访问 UI）：
+
+```sh
+# 1. Stable URL: set your own token once; the sign-in link never changes again.
+DSH_AUTH_TOKEN=my-long-random-secret docker compose up -d
+# open http://192.168.1.50:3080/?token=my-long-random-secret
+
+# 2. No token at all: any host on the trust fence reaches the UI directly.
+DSH_AUTH_MODE=none docker compose up -d
+```
+
+设为 `DSH_AUTH_MODE=none` 后，凡是地址通过 `DSH_TRUSTED_HOSTS` 的机器都能访问 Web UI——包括 agent 的代码执行工具。仅在你完全掌控的网络中使用；Host/Origin 信任栅栏（上一节）在任一模式下都仍然生效，且本 fork 的 Docker 镜像在该模式关闭时会在启动日志中打印警告。
 
 ### 反向代理
 
