@@ -44,4 +44,4 @@ The self-hosted VM's store lives on `F:\.pnpm-store` (ReFS, machine-level `PNPM_
 
 ## Consequences
 
-The self-hosted Windows installs use block cloning, giving independent file paths (no TS6231) with shared physical blocks (no copy). Hosted runners keep the default import method. The `serial-windows` standby drill and the pull-request native jobs on the self-hosted pool depend on the ReFS volume layout; a runner rebuilt from the [failover runbook](2026-07-26-ci-failover-runbook.md) without the ReFS store-and-workspace layout would fail the Windows build gates with TS6231 (or the install with reflink errors).
+The self-hosted Windows installs use block cloning, giving independent file paths (no TS6231) with shared physical blocks (no copy). Hosted runners keep the default import method. The `serial-windows` standby drill and the pull-request native jobs on the self-hosted pool depend on the ReFS volume layout; a runner rebuilt from the [failover runbook](../../archived/process/2026-07-26-ci-failover-runbook.md) without the ReFS store-and-workspace layout would fail the Windows build gates with TS6231 (or the install with reflink errors).

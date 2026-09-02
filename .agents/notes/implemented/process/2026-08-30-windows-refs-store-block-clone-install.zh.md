@@ -44,4 +44,4 @@ if ($fs -eq 'ReFS') {
 
 ## Consequences
 
-自托管 Windows 安装使用块克隆，既得到独立文件路径（无 TS6231），又共享物理块（无复制）。托管 runner 保留默认导入方式。`serial-windows` standby drill 与自托管池上的 pull-request 原生作业依赖 ReFS 卷布局；若按 [failover runbook](2026-07-26-ci-failover-runbook.zh.md) 重建 runner 而没有 ReFS store 与工作区布局，Windows 构建门禁会以 TS6231 失败（或安装阶段以 reflink 错误失败）。
+自托管 Windows 安装使用块克隆，既得到独立文件路径（无 TS6231），又共享物理块（无复制）。托管 runner 保留默认导入方式。`serial-windows` standby drill 与自托管池上的 pull-request 原生作业依赖 ReFS 卷布局；若按 [failover runbook](../../archived/process/2026-07-26-ci-failover-runbook.md) 重建 runner 而没有 ReFS store 与工作区布局，Windows 构建门禁会以 TS6231 失败（或安装阶段以 reflink 错误失败）。

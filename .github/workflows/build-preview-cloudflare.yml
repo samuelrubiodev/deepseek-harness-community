@@ -32,7 +32,7 @@ env:
 
 jobs:
   preview:
-    runs-on: dsh-ubuntu-24-04-16core
+    runs-on: ubuntu-latest
     name: cloudflare pages preview
     steps:
       - uses: actions/checkout@v6
