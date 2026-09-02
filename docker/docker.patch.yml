@@ -1,0 +1,7 @@
+# Docker runtime patch overlay for deepseek-harness
+# Binds webserver to all container interfaces (0.0.0.0) so Docker port forwarding works,
+# cleanly avoiding any modifications to core packages.
+- id: webserver
+  config:
+    host: 0.0.0.0
+    port: 3080

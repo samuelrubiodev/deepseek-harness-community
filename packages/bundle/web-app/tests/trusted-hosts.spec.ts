@@ -31,4 +31,15 @@ describe('resolveLanTrust', () => {
     expect(resolveLanTrust('127.0.0.1', ['lab.internal']))
       .toEqual({ lanAddresses: [], trustedHosts: ['lab.internal'] })
   })
+
+  it('incorporates DSH_TRUSTED_HOSTS from environment and deduplicates entries', () => {
+    process.env.DSH_TRUSTED_HOSTS = 'lan-host.local, 192.168.1.5'
+    try {
+      const { lanAddresses, trustedHosts } = resolveLanTrust('0.0.0.0', ['192.168.1.5', 'extra.lan'])
+      expect(lanAddresses).toEqual(['192.168.1.5', '10.0.0.7'])
+      expect(trustedHosts).toEqual(['192.168.1.5', '10.0.0.7', 'lan-host.local', 'extra.lan'])
+    } finally {
+      delete process.env.DSH_TRUSTED_HOSTS
+    }
+  })
 })

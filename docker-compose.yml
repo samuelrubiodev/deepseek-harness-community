@@ -1,0 +1,29 @@
+services:
+  harness:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      network: host
+    image: deepseek-harness:latest
+    container_name: deepseek-harness
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    environment:
+      - NODE_ENV=production
+      - DSH_HOME=/data
+      - WORKSPACE_DIR=/workspace
+      - PORT=3080
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    volumes:
+      - dsh-data:/data
+      - dsh-workspace:/workspace
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dsh-data:
+  dsh-workspace:

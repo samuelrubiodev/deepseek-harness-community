@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   apply,
   type ClientTransportHooks,
+  type ConnectionClientConfig,
   type ConnectionGenerationSource,
   type ConnectionHandle,
   type ConnectionState,
@@ -15,11 +16,13 @@ import {
 type Win = {
   location?: { hostname: string; search: string; origin?: string }
   __DSH_TRANSPORT__?: ClientTransportHooks
+  __DSH_TRUSTED_HOSTS__?: string[]
 }
 
 afterEach(() => {
   delete (globalThis as Win).location
   delete (globalThis as Win).__DSH_TRANSPORT__
+  delete (globalThis as Win).__DSH_TRUSTED_HOSTS__
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
@@ -62,9 +65,9 @@ function installGeneration(handle: ConnectionHandle): GenerationProbe {
   return probe
 }
 
-async function mount(): Promise<ConnectionHandle> {
+async function mount(config?: ConnectionClientConfig): Promise<ConnectionHandle> {
   const ctx = new Context()
-  await ctx.plugin({ apply, inject: [] })
+  await ctx.plugin({ apply, inject: [] }, config)
   const handle = ctx.get('connection') as ConnectionHandle | undefined
   if (handle === undefined) throw new Error('ctx.connection not provided')
   return handle
@@ -92,6 +95,19 @@ describe('connection client apply', () => {
   it('reports non-loopback page authority through the connection handle', async () => {
     ;(globalThis as Win).location = { hostname: '192.0.2.20', search: '' }
     expect((await mount()).isLoopback).toBe(false)
+  })
+
+  it('reports trusted non-loopback page authority as authorized via config', async () => {
+    ;(globalThis as Win).location = { hostname: 'harness.lan', search: '' }
+    const handle = await mount({ trustedHosts: ['harness.lan:3080'] })
+    expect(handle.isLoopback).toBe(true)
+  })
+
+  it('reports trusted non-loopback page authority as authorized via __DSH_TRUSTED_HOSTS__ global', async () => {
+    ;(globalThis as Win).location = { hostname: '192.168.1.50', search: '' }
+    ;(globalThis as Win).__DSH_TRUSTED_HOSTS__ = ['192.168.1.50']
+    const handle = await mount()
+    expect(handle.isLoopback).toBe(true)
   })
 
   it('requires one generation source and ignores a stale source disposer', async () => {

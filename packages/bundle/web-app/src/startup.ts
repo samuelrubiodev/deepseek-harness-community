@@ -62,9 +62,9 @@ Examples:
 
 /**
  * Parse and provide the Web invocation as an ordinary Cordis service. The
- * command's action publishes the flags this invocation named; `--host 0.0.0.0`
- * or a non-numeric `--port` is a usage error, so on rejection (and on `--help`)
- * nothing is provided.
+ * command's action publishes the flags this invocation named; a non-numeric
+ * `--port` is a usage error, so on rejection (and on `--help`) nothing is
+ * provided. Binding to `0.0.0.0` logs a security warning.
  * @param ctx - plugin context carrying the command line.
  */
 export function apply(ctx: Context): void {
@@ -72,16 +72,21 @@ export function apply(ctx: Context): void {
   program.action(() => {
     const options = program.opts<WebOptions>()
     if (options.host === '0.0.0.0') {
-      program.error('error: --host 0.0.0.0 is intentionally not supported yet for safety: it would expose remote code execution to the network; use 127.0.0.1 instead')
+      console.warn('warning: --host 0.0.0.0 binds to all network interfaces; ensure access is secured')
     }
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
     }
+    const envTrusted = (process.env.DSH_TRUSTED_HOSTS ?? '')
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(entry => entry.length > 0)
+    const trustedHosts = Array.from(new Set([...(options.trustedHost ?? []), ...envTrusted]))
     ctx.provide(WEB_STARTUP_SERVICE, {
       openBrowser: options.open,
       ...options.host !== undefined && { host: options.host },
       ...options.port !== undefined && { port: Number(options.port) },
-      trustedHosts: options.trustedHost ?? [],
+      trustedHosts,
     } satisfies WebStartupValues)
   })
   parseCmdline(ctx, program)

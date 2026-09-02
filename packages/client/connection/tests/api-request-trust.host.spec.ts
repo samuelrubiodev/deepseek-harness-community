@@ -112,4 +112,27 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request({ ...markers, host: '127.0.0.999' }), [])).toBe(false)
     expect(isTrustedApiRequest(request({ ...markers, host: '128.0.0.1' }), [])).toBe(false)
   })
+
+  it('evaluates reverse proxy headers only when reverseProxy option is enabled', () => {
+    const headers = {
+      host: '127.0.0.1:3080',
+      'x-forwarded-host': 'harness.lan:3080',
+      'x-forwarded-proto': 'http',
+      origin: 'http://harness.lan:3080',
+    }
+    // Disabled by default: origin doesn't match host (127.0.0.1:3080)
+    expect(isTrustedApiRequest(request(headers), ['harness.lan'])).toBe(false)
+    // Enabled explicitly: origin matches forwarded host and forwarded host is trusted
+    expect(isTrustedApiRequest(request(headers), ['harness.lan'], { reverseProxy: true })).toBe(true)
+    // Enabled with TLS termination
+    const tlsHeaders = {
+      host: '127.0.0.1:3080',
+      'x-forwarded-host': 'harness.lan',
+      'x-forwarded-proto': 'https',
+      origin: 'https://harness.lan',
+    }
+    expect(isTrustedApiRequest(request(tlsHeaders), ['harness.lan'], { reverseProxy: true })).toBe(true)
+    // Refuses when forwarded host is untrusted
+    expect(isTrustedApiRequest(request(tlsHeaders), ['other.lan'], { reverseProxy: true })).toBe(false)
+  })
 })

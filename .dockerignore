@@ -1,0 +1,7 @@
+.git
+node_modules
+.pnpm-store
+coverage
+tmp
+.agents
+python

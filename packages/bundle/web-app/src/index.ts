@@ -137,7 +137,12 @@ export function resolveLanTrust(bindHost: string, extra: readonly string[]): Web
       .filter((iface): iface is NonNullable<typeof iface> => iface !== undefined && iface.family === 'IPv4' && !iface.internal)
       .map(iface => iface.address)
     : []
-  return { lanAddresses, trustedHosts: [...lanAddresses, ...extra] }
+  const envTrusted = (process.env.DSH_TRUSTED_HOSTS ?? '')
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(entry => entry.length > 0)
+  const combined = Array.from(new Set([...lanAddresses, ...envTrusted, ...extra]))
+  return { lanAddresses, trustedHosts: combined }
 }
 
 /** Model-visible orientation and acceptance boundary for sessions created through `dsh web`. */
@@ -270,11 +275,13 @@ export function apply(ctx: Context, config: Config): void {
         const webUrl = localWebUrl(connectionCtx)
         const authenticatedUrl = connectionCtx.connection.authenticatedUrl(webUrl)
         // Reuse the exact LAN snapshot provided to the /api trust fence.
-        const lanCandidate = runtime.lanAddresses[0]
+        const lanCandidate = runtime.lanAddresses[0] ?? runtime.trustedHosts[0]
         const port = connectionCtx.webServer.port
         const lanUrl = lanCandidate === undefined
           ? undefined
-          : connectionCtx.connection.authenticatedUrl(`http://${lanCandidate}:${String(port)}`)
+          : connectionCtx.connection.authenticatedUrl(
+            lanCandidate.includes('://') ? lanCandidate : `http://${lanCandidate}${lanCandidate.includes(':') ? '' : `:${String(port)}`}`,
+          )
         ANNOUNCED_ROOTS.add(connectionCtx.root)
         if (config.printUrl) {
           console.log(`dsh web: ${authenticatedUrl}${lanUrl === undefined ? '' : ` (LAN: ${lanUrl})`}`)

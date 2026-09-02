@@ -66,12 +66,22 @@ function header(
   return typeof value === 'string' ? value : undefined
 }
 
+function firstHeaderSegment(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const at = value.indexOf(',')
+  const segment = at === -1 ? value : value.slice(0, at)
+  const trimmed = segment.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 /** Canonical request authority used as the cookie name and signed audience. */
-function requestAuthority(headers: ConnectionTrustRequest['headers']): string | undefined {
-  const host = header(headers, 'host')
+function requestAuthority(headers: ConnectionTrustRequest['headers'], reverseProxy: boolean = false): string | undefined {
+  const forwarded = reverseProxy ? firstHeaderSegment(header(headers, 'x-forwarded-host')) : undefined
+  const host = forwarded ?? header(headers, 'host')
   if (host === undefined) return undefined
+  const proto = (reverseProxy ? firstHeaderSegment(header(headers, 'x-forwarded-proto')) : undefined) ?? 'http'
   try {
-    return new URL(`http://${host}`).host
+    return new URL(`${proto}://${host}`).host
   } catch {
     return undefined
   }
@@ -190,6 +200,7 @@ export class BrowserAuth {
     processOwner: object,
     private readonly secret: Buffer,
     maxAgeDays: number,
+    private readonly reverseProxy: boolean = false,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -205,14 +216,16 @@ export class BrowserAuth {
    * @param processOwner - root application context retaining one token across Connection reloads.
    * @param credentials - persistent credential provider for the Web profile.
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
+   * @param reverseProxy - whether to trust reverse-proxy headers for authority resolution.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
     processOwner: object,
     credentials: CredentialProvider,
     maxAgeDays: number,
+    reverseProxy: boolean = false,
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays)
+    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays, reverseProxy)
   }
 
   /**
@@ -242,7 +255,7 @@ export class BrowserAuth {
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     if (tokens.length > 0) {
-      const authority = requestAuthority(req.headers)
+      const authority = requestAuthority(req.headers, this.reverseProxy)
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
         && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
         const issuedAt = Date.now()
@@ -287,7 +300,7 @@ export class BrowserAuth {
    * @returns true only for an unexpired cookie signed by this activation's loaded secret.
    */
   isAuthenticated(request: ConnectionTrustRequest): boolean {
-    const authority = requestAuthority(request.headers)
+    const authority = requestAuthority(request.headers, this.reverseProxy)
     const rawCookie = header(request.headers, 'cookie')
     if (authority === undefined || rawCookie === undefined) return false
     const value = cookieValue(rawCookie, cookieName(authority))

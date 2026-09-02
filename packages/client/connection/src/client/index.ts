@@ -114,7 +114,7 @@ interface ClientTransportGlobal {
 export interface ConnectionHandle {
   /**
    * Whether the privileged surface is reachable: the page authority is
-   * loopback, the transport declares the page owns the Host
+   * loopback or a trusted authority, the transport declares the page owns the Host
    * ({@link ClientTransportHooks.ownsHost}), or the context is not a browser.
    */
   readonly isLoopback: boolean
@@ -177,11 +177,34 @@ function watchBrowserNetwork(controller: ConnectionController): () => void {
   }
 }
 
+/** Configuration for the client connection plugin. */
+export interface ConnectionClientConfig {
+  /** Explicit trusted authorities or hosts accepted for privileged surface access. */
+  trustedHosts?: string[]
+}
+
+/** Global property optionally populated by index injection. */
+interface TrustedHostsGlobal {
+  __DSH_TRUSTED_HOSTS__?: string[]
+}
+
+function isAuthorizedHost(hostname: string, trusted: readonly string[]): boolean {
+  if (isLoopbackHostname(hostname)) return true
+  return trusted.some((entry) => {
+    try {
+      return new URL(`http://${entry}`).hostname.toLowerCase() === hostname.toLowerCase()
+    } catch {
+      return false
+    }
+  })
+}
+
 /**
  * Client plugin body: pick the api by page mode and provide ctx.connection.
  * @param ctx - client cordis context.
+ * @param config - optional client connection configuration.
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config?: ConnectionClientConfig): void {
   const pageLocation = typeof location === 'undefined' ? undefined : location
   const fixture = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
   const fixtureRpc = fixture ? createFixtureConnectionRpc() : undefined
@@ -224,8 +247,9 @@ export function apply(ctx: Context): void {
     publishGeneration(undefined)
     publishState(undefined)
   }
+  const trustedHosts = (globalThis as TrustedHostsGlobal).__DSH_TRUSTED_HOSTS__ ?? config?.trustedHosts ?? []
   const handle: ConnectionHandle = {
-    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isAuthorizedHost(pageLocation.hostname, trustedHosts),
     generation: {
       getSnapshot: () => generation,
       subscribe: (listener) => {

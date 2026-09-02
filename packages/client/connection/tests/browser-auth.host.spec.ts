@@ -247,4 +247,43 @@ describe('BrowserAuth', () => {
     await expect(createAuth(new RecordCredentials(), Number.MAX_SAFE_INTEGER))
       .rejects.toThrow(/safe timestamp range/u)
   })
+
+  it('binds cookie authority to X-Forwarded-Host under reverseProxy mode', async () => {
+    const store = new RecordCredentials()
+    const auth = await BrowserAuth.create({}, credentials(store), 30, true)
+    const token = new URL(auth.authenticatedUrl('http://127.0.0.1:3080')).searchParams.get('token')
+    const res = response()
+    const req: ConnectionIndexRequest = {
+      headers: {
+        host: '127.0.0.1:3080',
+        'x-forwarded-host': 'harness.lan',
+        'x-forwarded-proto': 'https',
+      },
+      method: 'GET',
+      url: `/?token=${token!}`,
+    }
+    const authorized = auth.authorizeIndex(req, res.value)
+    expect(authorized).toBe(false)
+    expect(res.state.status).toBe(303)
+    const cookie = res.state.headers?.['set-cookie']
+    expect(cookie).toBeDefined()
+
+    // Subsequent request with the cookie and forwarded host succeeds
+    expect(auth.isAuthenticated({
+      headers: {
+        host: '127.0.0.1:3080',
+        'x-forwarded-host': 'harness.lan',
+        'x-forwarded-proto': 'https',
+        cookie: cookie!,
+      },
+    })).toBe(true)
+
+    // Request without forwarded host does not match the cookie authority
+    expect(auth.isAuthenticated({
+      headers: {
+        host: '127.0.0.1:3080',
+        cookie: cookie!,
+      },
+    })).toBe(false)
+  })
 })

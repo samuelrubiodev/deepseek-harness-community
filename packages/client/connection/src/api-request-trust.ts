@@ -22,6 +22,14 @@ function header(headers: ConnectionTrustRequest['headers'], name: string): strin
   return typeof value === 'string' ? value : undefined
 }
 
+function firstHeaderSegment(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const at = value.indexOf(',')
+  const segment = at === -1 ? value : value.slice(0, at)
+  const trimmed = segment.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 /** Normalized URL of a Host-header authority (hostname lowercased, default port stripped, IPv6 bracketed), or undefined when unparsable. */
 function parseAuthority(authority: string): URL | undefined {
   try {
@@ -82,13 +90,24 @@ function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): bool
   })
 }
 
+/** Options controlling reverse-proxy evaluation for /api requests. */
+export interface TrustedApiRequestOptions {
+  /** When true, trust standard X-Forwarded-Host and X-Forwarded-Proto reverse proxy headers. */
+  readonly reverseProxy?: boolean
+}
+
 /**
  * Decide whether one /api request may reach the RPC bridge.
  * @param request - Node HTTP or Fetch request facts (headers).
  * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
+ * @param options - optional request trust options (e.g. reverseProxy support).
  * @returns true when the Host is ours (loopback or trusted) and any attached browser markers are same-origin.
  */
-export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHosts: readonly string[]): boolean {
+export function isTrustedApiRequest(
+  request: ConnectionTrustRequest,
+  trustedHosts: readonly string[],
+  options?: TrustedApiRequestOptions,
+): boolean {
   // Host fence (DNS-rebinding defense), applied to every request: the browser
   // fills Host from the URL it believes it is talking to, so a rebound page
   // carries the attacker's domain here even though the socket lands on this
@@ -96,10 +115,20 @@ export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHost
   // (images and navigations) arrives with neither Origin nor
   // Fetch-Metadata, indistinguishable from curl, and its response is readable
   // by the rebound page.
-  const host = header(request.headers, 'host')
-  if (host === undefined) return false
-  const hostUrl = parseAuthority(host)
-  if (hostUrl === undefined) return false
+  const reverseProxy = options?.reverseProxy ?? (process.env.DSH_REVERSE_PROXY === 'true' || process.env.DSH_REVERSE_PROXY === '1')
+  const rawHost = header(request.headers, 'host')
+  if (rawHost === undefined) return false
+
+  const forwardedHost = reverseProxy ? firstHeaderSegment(header(request.headers, 'x-forwarded-host')) : undefined
+  const host = forwardedHost ?? rawHost
+  const proto = (reverseProxy ? firstHeaderSegment(header(request.headers, 'x-forwarded-proto')) : undefined) ?? 'http'
+
+  let hostUrl: URL | undefined
+  try {
+    hostUrl = new URL(`${proto}://${host}`)
+  } catch {
+    return false
+  }
   if (!isLoopbackHostname(hostUrl.hostname) && !isTrustedAuthority(hostUrl, trustedHosts)) return false
   // Cross-site fence: modern browsers label the initiator relationship on
   // every fetch; an explicit cross-site marker is refused regardless of Origin.
@@ -111,7 +140,8 @@ export function isTrustedApiRequest(request: ConnectionTrustRequest, trustedHost
   const origin = header(request.headers, 'origin')
   if (origin === undefined) return true
   try {
-    return new URL(origin).host === hostUrl.host
+    const originUrl = new URL(origin)
+    return originUrl.host === hostUrl.host
   } catch {
     return false
   }

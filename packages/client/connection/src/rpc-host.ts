@@ -70,6 +70,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly reverseProxy: boolean = false,
   ) {
     super(ctx, 'connection')
   }
@@ -94,7 +95,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Apply the configured Host/Origin fence, then browser authentication. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    if (!isTrustedApiRequest(request, this.trustedHosts)) return 403
+    if (!isTrustedApiRequest(request, this.trustedHosts, { reverseProxy: this.reverseProxy })) return 403
     return this.browserAuth.isAuthenticated(request) ? undefined : 401
   }
 
