@@ -90,8 +90,9 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
     status: response.status,
     type: response.headers.get('content-type'),
     // Window wide enough to keep index body markers visible behind the
-    // served prelude (base anchor + injection rows + boot-readiness tail).
-    body: (await response.text()).slice(0, 200),
+    // served prelude: base anchor, injection rows (including the connection
+    // plugin's trusted-hosts global), the boot-readiness tail, and the body.
+    body: (await response.text()).slice(0, 400),
   }
 }
 

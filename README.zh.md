@@ -1,84 +1,153 @@
-# DeepSeek Harness
+# DeepSeek Harness — Community Fork
 
 [English](README.md) | 中文
 
-DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
+面向家庭服务器与局域网部署的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）自助发行版。它提供一条命令的 Docker 部署、局域网与反向代理访问，以及声明式环境配置——同时不重写上游代码，让 `git merge upstream/master` 保持低成本。
 
-它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
+> **安全须知**：DeepSeek Harness 会执行模型生成的代码。在将其暴露到你的网络之前，请先阅读 [SAFETY.zh.md](SAFETY.zh.md)，并且只信任你自己控制的主机。
 
-文档：[https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
+## 本 fork 的改动
 
-## 开发者预览
+上游默认只绑定 `127.0.0.1`，并有意拒绝局域网与代理访问。本 fork 保留上游的安全模型，但将其改为声明式：
 
-DeepSeek Harness 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
+- **局域网访问**（`http://<你的IP>:3080`）：通过显式的受信主机白名单（`DSH_TRUSTED_HOSTS`）实现，而不是硬编码的 403 拒绝。
+- **反向代理支持**（Nginx、Caddy、Traefik、Cloudflare Tunnel）：代理转发 `X-Forwarded-Host` / `X-Forwarded-Proto` 后，信任栅栏与会话 Cookie 会跟随浏览器所见的权威地址。
+- **设置界面解锁**：来自受信主机的客户端也能使用设置面板——不再局限于 `localhost`。
+- **Docker 原生插件管理**：`pnpm` 已预装，其存储区持久化在 `/data` 卷上。
+- **结构化诊断**：被拒绝的请求会在 `docker compose logs` 中输出精确且不含凭据的原因（`untrusted host "…"`、`origin mismatch (…)`、`session cookie expired at …`）。
 
-运行本项目前，请阅读[安全说明](SAFETY.zh.md)。
+其余一切——agent 循环、插件、会话存储——都是未修改的上游代码。
 
 <a id="run"></a>
 
 ## 运行
 
-### 通过 `npm` 运行
+### 使用 Docker 运行
 
-安装 `Node.js`，然后运行：
-
-```sh
-npx @deepseek-ai/dsh web
-```
-
-该命令默认会在 `http://127.0.0.1:3080` 启动 Web UI，本机启动时还会用默认浏览器打开页面。通过 SSH 启动时只打印宿主机 URL，因为本地转发地址由 SSH 客户端或编辑器持有。传入 `--no-open` 可仅运行服务器而不打开浏览器。详见 [Web UI 指南](docs/user/guide/index.zh.md)。
+参见上文的[快速开始（Docker）](#quick-start-docker)。
 
 <a id="run-from-source"></a>
 
 ### 从源码运行
 
-如需从仓库源码运行：
+参见下文的[从源码运行（无 Docker）](#running-from-source-no-docker)。
+
+<a id="quick-start-docker"></a>
+
+## 快速开始（Docker）
+
+环境要求：Docker Engine 24+ 与 Docker Compose v2。
 
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
-pnpm install
-pnpm run build
-pnpm dsh web
+git clone https://github.com/samuelrubiodev/deepseek-harness-community.git
+cd deepseek-harness-community
+cp .env.example .env
+docker compose up -d --build
 ```
 
-`pnpm run build` 会准备仓库产物。`pnpm dsh web` 会直接使用这些已构建产物，不会重新构建。
+打开 `http://<服务器IP>:3080`，在引导对话框中填入你的 `DEEPSEEK_API_KEY`（也可先在 `.env` 中设置）。首次构建会编译 TypeScript monorepo，需要几分钟；之后的启动是即时的。
+
+两个卷在升级与容器重建后保留全部状态：
+
+| 卷 | 挂载点 | 内容 |
+| :--- | :--- | :--- |
+| `dsh-data` | `/data` | `$DSH_HOME`：会话、profile、插件、凭据、设置 |
+| `dsh-workspace` | `/workspace` | agent 的工作目录与你的项目 |
+
+检查健康状态与日志（期望 `Up (healthy)`）：
+
+```sh
+docker compose ps
+docker compose logs -f harness
+```
+
+## 配置
+
+所有配置项都是环境变量，在 [.env.example](.env.example) 中有详尽说明。将其复制为 `.env`，然后用 `docker compose up -d` 重启。
+
+| 变量 | 默认值 | 用途 |
+| :--- | :--- | :--- |
+| `DSH_HOST` | `0.0.0.0` | 服务器在容器内绑定的网络接口。 |
+| `DSH_PORT` | `3080` | 监听端口（Compose 同时映射该端口）。 |
+| `DSH_TRUSTED_HOSTS` | *（空）* | 允许访问 Web UI 的主机名/IP 白名单，如 `192.168.1.50,harness.lan`。携带其他 `Host` 头的请求会得到 403。 |
+| `DSH_REVERSE_PROXY` | `false` | 在 Nginx/Caddy/Traefik/隧道后设为 `true`：代理的 `X-Forwarded-Host` / `X-Forwarded-Proto` 随即决定信任与 Cookie 权威。 |
+| `DEEPSEEK_API_KEY` | *（空）* | DeepSeek API 密钥；也可在 Web UI 中输入。 |
+| `DSH_HOME` | `/data` | 容器内的持久状态根目录。 |
+
+`DSH_*` 变量属于进程级引导配置：Compose 以原生方式注入它们，分层环境加载器会拒绝工作区 `.env` 文件中的此类变量——请放在仓库根目录的 `.env`（或 Compose 的 `environment:` 块）中，绝不放入 `/workspace/.env`。
+
+### 局域网访问
+
+把用户在浏览器中输入的每个地址加入 `DSH_TRUSTED_HOSTS`，然后重启：
+
+```sh
+DSH_TRUSTED_HOSTS=192.168.1.50,harness.lan docker compose up -d
+```
+
+该列表中的主机还能使用 Web UI 中持久的设置面板。
+
+### 反向代理
+
+针对 Nginx、Caddy、Traefik 与 Cloudflare Tunnel 的参考配置（含 TLS 终结、WebSocket 透传 `/api/remote.mux`、为流式输出关闭缓冲、长超时）位于 [deploy/reverse-proxy/](deploy/reverse-proxy/README.md)。任何代理的最低要求：
+
+1. 设置 `DSH_REVERSE_PROXY=true`，并把公开主机名加入 `DSH_TRUSTED_HOSTS`。
+2. 转发 `X-Forwarded-Host: $host` 与 `X-Forwarded-Proto: https`（在终结 TLS 的代理上）。
+3. 传递 `Upgrade` / `Connection` 头，并关闭响应缓冲。
+
+## 升级
+
+```sh
+./scripts/sync-upstream.sh --check
+./scripts/sync-upstream.sh --merge
+```
+
+同步工具及其冲突解决手册见 [deploy/sync/README.md](deploy/sync/README.md)。合并后重建容器：`docker compose up -d --build`。
+
+<a id="running-from-source-no-docker"></a>
+
+## 从源码运行（无 Docker）
+
+与上游相同的环境要求：Node.js ^22.19 或 24，以及 pnpm 11。
+
+```sh
+pnpm install
+pnpm run build
+DSH_HOST=0.0.0.0 DSH_TRUSTED_HOSTS=192.168.1.50 pnpm dsh web --no-open
+```
+
+`--host 0.0.0.0` 会打印一条安全警告并绑定所有网络接口；配合 `DSH_TRUSTED_HOSTS` 决定谁可以连接。
+
+## 故障排查
+
+先从日志读取拒绝原因——每个 403/401 都会说明确切原因：
+
+| 日志消息 | 原因 | 解决办法 |
+| :--- | :--- | :--- |
+| `untrusted host "…"`, `trustedHosts: (…)` | `Host` 头不在白名单中 | 把该主机加入 `DSH_TRUSTED_HOSTS` 并重启 |
+| `origin mismatch ("https://…" vs "http://…")` | 代理终结了 TLS 但未转发 `X-Forwarded-Proto` | 设置 `proxy_set_header X-Forwarded-Proto https;` |
+| `session cookie authority mismatch` | Cookie 是为不同的主机/端口签发的 | 通过同一代理权威重新打开启动 URL |
+| `session cookie expired at …` | 30 天 Cookie 有效期已过 | 重新打开 `dsh web` 打印的 URL 重新认证 |
+
+健康检查：容器探测 `http://127.0.0.1:<port>/`，把 200/303/401 都视为健康——401 是预期的未认证质询，证明 HTTP 服务器与 Cordis 运行时存活。
+
+## 仓库结构（fork 特有）
+
+```text
+docker/                    Dockerfile, entrypoint, healthcheck, Cordis bind patch
+docker-compose.yml         Production-ready orchestrator (uses .env)
+.env.example               Exhaustive declarative configuration template
+deploy/reverse-proxy/      Reference Nginx / Caddy / Traefik / Tunnel configs
+deploy/sync/               Upstream sync runbook
+scripts/sync-upstream.sh   Automated upstream merge with conflict simulation
+deploy/lab/                Reproducible test lab (proxy scenarios, WebSockets, SSL)
+```
+
+上游的 `packages/`、`apps/` 与文档均未修改，仅上文描述的受信主机、反向代理与诊断特性除外。
 
 ## 社区与支持
 
-- 通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
-- 为你的插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
-- 欢迎加入 DeepSeek Harness 企微群：扫码添加企微小助手并填写入群问卷，完成后小助手会邀请你入群。
-
-<table>
-  <thead>
-    <tr>
-      <th align="center">企微小助手</th>
-      <th align="center">入群问卷</th>
-      <th align="center">微信公众号</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><img src="https://cdn.deepseek.com/harness/readme/community-wecom-assistant.png" alt="DeepSeek Harness 企微小助手二维码" width="180" height="180"></td>
-      <td align="center"><a href="https://trtgsjkv6r.feishu.cn/share/base/form/shrcnIt5twSVdLGD52KJBckGCgg"><img src="https://cdn.deepseek.com/harness/readme/community-wecom-survey.png" alt="DeepSeek Harness 入群问卷二维码" width="180" height="180"></a></td>
-      <td align="center"><img src="https://cdn.deepseek.com/harness/readme/community-wechat-official-account.png" alt="DeepSeek Harness 团队微信公众号二维码" width="180" height="180"></td>
-    </tr>
-  </tbody>
-</table>
-
-## 参与贡献
-
-参见 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。
-
-## 开发
-
-请先阅读[开发指南](docs/development.zh.md)与[架构文档](docs/architecture.zh.md)。
-
-面向 agent：请遵循 [AGENTS.md](AGENTS.md)。
+上游资源同样适用：[DeepSeek Harness 文档](https://deepseek-harness.github.io/deepseek-harness/)、[Discord 社区](https://discord.gg/Ycq5dCaS4)、[GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)。fork 特有的问题请提交到[本仓库的 issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues)。
 
 ## 许可证
 
-[MIT](LICENSE)
-
-第三方依赖及其许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+[MIT](LICENSE)，与上游一致。第三方声明：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
