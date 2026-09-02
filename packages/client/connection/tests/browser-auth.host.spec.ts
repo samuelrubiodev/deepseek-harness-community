@@ -286,4 +286,132 @@ describe('BrowserAuth', () => {
       },
     })).toBe(false)
   })
+
+  it('provides structured diagnostic failure reasons in authenticate and logs warnings safely without leaking secrets', async () => {
+    const store = new RecordCredentials()
+    const warnings: string[] = []
+    const logger = { warn: (msg: string) => { warnings.push(msg) } }
+    const auth = await BrowserAuth.create({}, credentials(store), 30, false, logger)
+    const { cookie, launchUrl } = exchange(auth)
+    const launchToken = new URL(launchUrl).searchParams.get('token')!
+
+    // Missing authority
+    const noHost = auth.authenticate({ headers: {} })
+    expect(noHost).toEqual({
+      authenticated: false,
+      reason: 'missing or unparseable request authority (Host)',
+    })
+
+    // Missing Cookie header
+    const noCookieHeader = auth.authenticate(request('/', '127.0.0.1:3080'))
+    expect(noCookieHeader).toEqual({
+      authenticated: false,
+      reason: 'missing Cookie header for authority "127.0.0.1:3080"',
+    })
+
+    // Missing cookie for this specific authority
+    const wrongCookieName = auth.authenticate(request('/', '127.0.0.1:3080', { cookie: 'other-cookie=123' }))
+    expect(wrongCookieName).toEqual({
+      authenticated: false,
+      reason: 'missing session cookie for authority "127.0.0.1:3080"',
+    })
+
+    // Invalid cookie signature
+    const [name] = cookie.split('=') as [string, string]
+    const tampered = auth.authenticate(request('/', '127.0.0.1:3080', { cookie: `${name}=broken` }))
+    expect(tampered).toEqual({
+      authenticated: false,
+      reason: 'invalid or unparseable session cookie signature for authority "127.0.0.1:3080"',
+    })
+
+    // Authority mismatch
+    const mismatch = auth.authenticate(request('/', 'localhost:3080', { cookie }))
+    expect(mismatch.authenticated).toBe(false)
+    if (!mismatch.authenticated) {
+      expect(mismatch.reason).toMatch(/missing session cookie for authority "localhost:3080"/)
+    }
+
+    // Authority mismatch with manually crafted cookie payload signed by valid secret
+    const otherAuthorityCookie = signedCookie(store, name, {
+      version: 1,
+      authority: 'other.domain:3080',
+      issuedAt: Date.now(),
+      expiresAt: Date.now() + 100000,
+    })
+    const payloadMismatch = auth.authenticate(request('/', '127.0.0.1:3080', { cookie: otherAuthorityCookie }))
+    expect(payloadMismatch).toEqual({
+      authenticated: false,
+      reason: 'session cookie authority mismatch ("other.domain:3080" vs "127.0.0.1:3080")',
+    })
+
+    // Expired cookie
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T00:00:00.000Z'))
+    const authTimed = await BrowserAuth.create({}, credentials(store), 1, false, logger)
+    const { cookie: timedCookie } = exchange(authTimed)
+    vi.setSystemTime(new Date('2026-08-26T00:00:00.000Z'))
+    const expired = authTimed.authenticate(request('/', '127.0.0.1:3080', { cookie: timedCookie }))
+    expect(expired.authenticated).toBe(false)
+    if (!expired.authenticated) {
+      expect(expired.reason).toMatch(/session cookie expired at/)
+    }
+    vi.useRealTimers()
+
+    // Future issuedAt
+    const futureCookie = signedCookie(store, name, {
+      version: 1,
+      authority: '127.0.0.1:3080',
+      issuedAt: Date.now() + 100000,
+      expiresAt: Date.now() + 200000,
+    })
+    const future = auth.authenticate(request('/', '127.0.0.1:3080', { cookie: futureCookie }))
+    expect(future.authenticated).toBe(false)
+    if (!future.authenticated) {
+      expect(future.reason).toMatch(/session cookie issued in the future/)
+    }
+
+    // authorizeIndex diagnostic logging
+    warnings.length = 0
+
+    // 1. Invalid launch token
+    const res1 = response()
+    auth.authorizeIndex(request('/?token=invalid_secret_token_12345'), res1.value)
+    expect(res1.state.status).toBe(401)
+    expect(warnings).toContain('client-connection: index authorization failed (401): invalid launch token')
+    // CRITICAL: Ensure the provided token value was NEVER logged
+    expect(warnings.join('\n')).not.toContain('invalid_secret_token_12345')
+    expect(warnings.join('\n')).not.toContain(launchToken)
+
+    // 2. Multiple tokens
+    warnings.length = 0
+    const res2 = response()
+    auth.authorizeIndex(request('/?token=tok1&token=tok2'), res2.value)
+    expect(res2.state.status).toBe(401)
+    expect(warnings).toContain('client-connection: index authorization failed (401): multiple launch tokens provided in query')
+    expect(warnings.join('\n')).not.toContain('tok1')
+    expect(warnings.join('\n')).not.toContain('tok2')
+
+    // 3. Non-GET method with token
+    warnings.length = 0
+    const res3 = response()
+    auth.authorizeIndex(request(`/?token=${launchToken}`, '127.0.0.1:3080', { method: 'POST' }), res3.value)
+    expect(res3.state.status).toBe(401)
+    expect(warnings).toContain('client-connection: index authorization failed (401): method "POST" is not GET')
+    expect(warnings.join('\n')).not.toContain(launchToken)
+
+    // 4. Non-root path with token
+    warnings.length = 0
+    const res4 = response()
+    auth.authorizeIndex(request(`/other?token=${launchToken}`, '127.0.0.1:3080'), res4.value)
+    expect(res4.state.status).toBe(401)
+    expect(warnings).toContain('client-connection: index authorization failed (401): pathname "/other" is not root (/)')
+    expect(warnings.join('\n')).not.toContain(launchToken)
+
+    // 5. Missing cookie on index request
+    warnings.length = 0
+    const res5 = response()
+    auth.authorizeIndex(request('/'), res5.value)
+    expect(res5.state.status).toBe(401)
+    expect(warnings).toContain('client-connection: index authorization failed (401): missing Cookie header for authority "127.0.0.1:3080"')
+  })
 })

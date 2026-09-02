@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
@@ -82,6 +82,7 @@ function fakeResponse(): {
 }
 
 async function mounted(config?: { trustedHosts?: string[] }): Promise<{
+  ctx: Context
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
   connection: HostConnectionHandle
@@ -95,6 +96,7 @@ async function mounted(config?: { trustedHosts?: string[] }): Promise<{
   const fiber = ctx.plugin({ inject: [...inject], apply }, config)
   await fiber.await()
   return {
+    ctx,
     routes,
     upgrades,
     connection: ctx.get('connection') as HostConnectionHandle,
@@ -235,6 +237,32 @@ describe('connection node half', () => {
       host: 'harness.example',
       cookie: browserCookie(connection, 'harness.example'),
     }))).toBeUndefined()
+    await dispose()
+  })
+
+  it('emits structured diagnostic warnings on 403 and 401 rejections via ctx.logger.warn', async () => {
+    const { ctx, connection, dispose } = await mounted({ trustedHosts: ['harness.example'] })
+    const warnings: string[] = []
+    const warnSpy = vi.spyOn(ctx.logger, 'warn').mockImplementation((...args: unknown[]) => {
+      warnings.push(String(args[0]))
+    })
+
+    // Untrusted host -> 403
+    const untrusted = fakeRequest({ host: 'untrusted.com' })
+    expect(connection.requestRejection(untrusted)).toBe(403)
+    expect(warnings).toContain(
+      'client-connection: API request rejected (403): untrusted host "untrusted.com" (trustedHosts: [harness.example])',
+    )
+
+    // Trusted host without cookie -> 401
+    warnings.length = 0
+    const unauthenticated = fakeRequest({ host: 'harness.example' })
+    expect(connection.requestRejection(unauthenticated)).toBe(401)
+    expect(warnings).toContain(
+      'client-connection: API request rejected (401): missing Cookie header for authority "harness.example"',
+    )
+
+    warnSpy.mockRestore()
     await dispose()
   })
 

@@ -40,6 +40,18 @@ export {
   serverResponseSchema,
 } from './rpc-schema.ts'
 export { HostConnectionService } from './rpc-host.ts'
+export {
+  assertTrustedAuthority,
+  evaluateApiRequestTrust,
+  isTrustedApiRequest,
+  type ApiRequestTrustResult,
+  type TrustedApiRequestOptions,
+} from './api-request-trust.ts'
+export {
+  BrowserAuth,
+  type BrowserAuthLogger,
+  type BrowserAuthResult,
+} from './browser-auth.ts'
 
 export { API_PATH } from './api-path.ts'
 
@@ -112,7 +124,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, reverseProxy),
+    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, reverseProxy, ctx.logger),
     reverseProxy,
   )
   const fetchHandler = connection.createSharedFetchHandler(API_PATH)

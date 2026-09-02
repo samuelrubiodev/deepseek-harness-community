@@ -9,7 +9,7 @@ import {
 } from './rpc.ts'
 import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge, type FetchHandler } from './http-bridge.ts'
-import { isTrustedApiRequest } from './api-request-trust.ts'
+import { evaluateApiRequestTrust } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import type {
@@ -95,8 +95,17 @@ export class HostConnectionService extends Service implements HostConnectionHand
 
   /** Apply the configured Host/Origin fence, then browser authentication. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    if (!isTrustedApiRequest(request, this.trustedHosts, { reverseProxy: this.reverseProxy })) return 403
-    return this.browserAuth.isAuthenticated(request) ? undefined : 401
+    const trust = evaluateApiRequestTrust(request, this.trustedHosts, { reverseProxy: this.reverseProxy })
+    if (!trust.trusted) {
+      this.ctx.logger.warn(`client-connection: API request rejected (403): ${trust.reason}`)
+      return 403
+    }
+    const auth = this.browserAuth.authenticate(request)
+    if (!auth.authenticated) {
+      this.ctx.logger.warn(`client-connection: API request rejected (401): ${auth.reason}`)
+      return 401
+    }
+    return undefined
   }
 
   /** Authenticate an index request through the process-token exchange or cookie. */

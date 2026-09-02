@@ -90,10 +90,73 @@ function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): bool
   })
 }
 
-/** Options controlling reverse-proxy evaluation for /api requests. */
+/** Result of evaluating API request trust. */
+export type ApiRequestTrustResult =
+  | { readonly trusted: true }
+  | { readonly trusted: false; readonly reason: string }
+
+/** Options controlling reverse-proxy evaluation and diagnostics for /api requests. */
 export interface TrustedApiRequestOptions {
   /** When true, trust standard X-Forwarded-Host and X-Forwarded-Proto reverse proxy headers. */
   readonly reverseProxy?: boolean
+  /** Optional callback invoked with the diagnostic reason when a request is rejected. */
+  readonly onReject?: (reason: string) => void
+  /** Optional logger to output warning on rejection. */
+  readonly logger?: { warn: (message: string, ...args: unknown[]) => void }
+}
+
+/**
+ * Evaluate whether one /api request may reach the RPC bridge with detailed diagnostic result.
+ * @param request - Node HTTP or Fetch request facts (headers).
+ * @param trustedHosts - non-loopback authorities this deployment serves: exact `host:port`, or port-less `host` matching any port.
+ * @param options - optional request trust options (e.g. reverseProxy support).
+ * @returns detailed trust result with rejection reason if untrusted.
+ */
+export function evaluateApiRequestTrust(
+  request: ConnectionTrustRequest,
+  trustedHosts: readonly string[],
+  options?: TrustedApiRequestOptions,
+): ApiRequestTrustResult {
+  const reverseProxy = options?.reverseProxy ?? (process.env.DSH_REVERSE_PROXY === 'true' || process.env.DSH_REVERSE_PROXY === '1')
+  const rawHost = header(request.headers, 'host')
+  if (rawHost === undefined) {
+    return { trusted: false, reason: 'missing Host header' }
+  }
+
+  const forwardedHost = reverseProxy ? firstHeaderSegment(header(request.headers, 'x-forwarded-host')) : undefined
+  const host = forwardedHost ?? rawHost
+  const proto = (reverseProxy ? firstHeaderSegment(header(request.headers, 'x-forwarded-proto')) : undefined) ?? 'http'
+
+  let hostUrl: URL | undefined
+  try {
+    hostUrl = new URL(`${proto}://${host}`)
+  } catch {
+    return { trusted: false, reason: `unparseable Host header "${host}"` }
+  }
+  if (!isLoopbackHostname(hostUrl.hostname) && !isTrustedAuthority(hostUrl, trustedHosts)) {
+    const trustedSummary = trustedHosts.length > 0 ? `trustedHosts: [${trustedHosts.join(', ')}]` : 'no trustedHosts configured'
+    return { trusted: false, reason: `untrusted host "${hostUrl.host}" (${trustedSummary})` }
+  }
+
+  if (header(request.headers, 'sec-fetch-site') === 'cross-site') {
+    return { trusted: false, reason: 'Sec-Fetch-Site is "cross-site"' }
+  }
+
+  const origin = header(request.headers, 'origin')
+  if (origin === undefined) return { trusted: true }
+
+  let originUrl: URL | undefined
+  try {
+    originUrl = new URL(origin)
+  } catch {
+    return { trusted: false, reason: `unparseable Origin header "${origin}"` }
+  }
+
+  if (originUrl.host !== hostUrl.host) {
+    return { trusted: false, reason: `origin mismatch ("${originUrl.host}" vs "${hostUrl.host}")` }
+  }
+
+  return { trusted: true }
 }
 
 /**
@@ -108,41 +171,11 @@ export function isTrustedApiRequest(
   trustedHosts: readonly string[],
   options?: TrustedApiRequestOptions,
 ): boolean {
-  // Host fence (DNS-rebinding defense), applied to every request: the browser
-  // fills Host from the URL it believes it is talking to, so a rebound page
-  // carries the attacker's domain here even though the socket lands on this
-  // server. There is no marker shortcut — a browser read over plain HTTP
-  // (images and navigations) arrives with neither Origin nor
-  // Fetch-Metadata, indistinguishable from curl, and its response is readable
-  // by the rebound page.
-  const reverseProxy = options?.reverseProxy ?? (process.env.DSH_REVERSE_PROXY === 'true' || process.env.DSH_REVERSE_PROXY === '1')
-  const rawHost = header(request.headers, 'host')
-  if (rawHost === undefined) return false
-
-  const forwardedHost = reverseProxy ? firstHeaderSegment(header(request.headers, 'x-forwarded-host')) : undefined
-  const host = forwardedHost ?? rawHost
-  const proto = (reverseProxy ? firstHeaderSegment(header(request.headers, 'x-forwarded-proto')) : undefined) ?? 'http'
-
-  let hostUrl: URL | undefined
-  try {
-    hostUrl = new URL(`${proto}://${host}`)
-  } catch {
+  const result = evaluateApiRequestTrust(request, trustedHosts, options)
+  if (!result.trusted) {
+    options?.onReject?.(result.reason)
+    options?.logger?.warn(`client-connection: API request rejected (403): ${result.reason}`)
     return false
   }
-  if (!isLoopbackHostname(hostUrl.hostname) && !isTrustedAuthority(hostUrl, trustedHosts)) return false
-  // Cross-site fence: modern browsers label the initiator relationship on
-  // every fetch; an explicit cross-site marker is refused regardless of Origin.
-  if (header(request.headers, 'sec-fetch-site') === 'cross-site') return false
-  // Origin fence: when a browser attaches an Origin it must be exactly this
-  // authority (compared through the same normalization as the Host). Absent
-  // Origin is fine — the Host fence above already bound the request. The
-  // literal "null" (sandboxed iframes, file: pages) is an opaque origin, refused.
-  const origin = header(request.headers, 'origin')
-  if (origin === undefined) return true
-  try {
-    const originUrl = new URL(origin)
-    return originUrl.host === hostUrl.host
-  } catch {
-    return false
-  }
+  return true
 }

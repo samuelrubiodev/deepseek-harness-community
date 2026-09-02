@@ -1,6 +1,6 @@
 # DeepSeek Harness Community Fork: Documento Maestro de Arquitectura, Auditoría, Estado y Hoja de Ruta
 
-**Versión del documento**: 1.4 (Fases 0, 1, 2, 3, 4 y 5 Completadas con Éxito)
+**Versión del documento**: 1.5 (Fases 0, 1, 2, 3, 4, 5 y 6 Completadas con Éxito)
 **Fecha**: Septiembre 2026
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
@@ -83,15 +83,15 @@ El desarrollo se ejecuta estrictamente por fases secuenciales. Cada fase finaliz
          │
 [FASE 2: Docker Base Reproducible]     --> COMPLETADA (Imagen base, volumes, healthcheck)
          │
-[FASE 3: Modelo LAN / Host / Origin]   --> SIGUIENTE PASO
+[FASE 3: Modelo LAN / Host / Origin]   --> COMPLETADA (0.0.0.0, trustedHosts, reverseProxy)
          │
-[FASE 4: Variables de Entorno]         --> PENDIENTE
+[FASE 4: Variables de Entorno]         --> COMPLETADA (DSH_HOST, DSH_PORT, .env.example)
          │
-[FASE 5: Plugins en Docker]            --> PENDIENTE
+[FASE 5: Plugins en Docker]            --> COMPLETADA (packageManager, pnpm store)
          │
-[FASE 6: Diagnóstico y Logging]        --> PENDIENTE
+[FASE 6: Diagnóstico y Logging]        --> COMPLETADA (Logs estructurados 403/401 sin fugas)
          │
-[FASE 7: Reverse Proxy Avanzado]       --> PENDIENTE
+[FASE 7: Reverse Proxy Avanzado]       --> SIGUIENTE PASO
          │
 [FASE 8: Actualizaciones Upstream]     --> PENDIENTE
          │
@@ -437,13 +437,59 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 
 ---
 
-### 6.4 FASE 6: Diagnóstico y Observabilidad Estructurada
-* **Objetivo**: Que ante cualquier fallo de conexión o autenticación, los logs expliquen con exactitud qué ha fallado sin comprometer la seguridad.
-* **Tareas**:
-  1. Instrumentar `isTrustedApiRequest`: Cuando una petición sea rechazada con 403, emitir un log a nivel `warn` o `debug` indicando:
-     * Motivo exacto: `Host no confiable (<host>)`, `Origin no coincidente (<origin> vs <host>)` o `Sec-Fetch-Site cross-site`.
-  2. Instrumentar `BrowserAuth`: Indicar si el rechazo 401 fue por falta de cookie, token inválido, expiración o desajuste de autoridad.
-  3. **Seguridad estricta**: Asegurar que los valores de tokens de autenticación, hashes de contraseñas y claves de API NUNCA se impriman en los logs.
+### 6.4 FASE 6: Diagnóstico y Observabilidad Estructurada (COMPLETADA CON ÉXITO)
+* **Objetivo**: Que ante cualquier fallo de conexión o autenticación, los logs expliquen con exactitud qué ha fallado sin comprometer la seguridad ni filtrar credenciales.
+* **Estado**: **100% IMPLEMENTADA Y VALIDADA**.
+* **Cambios implementados**:
+  1. **Instrumentación y diagnóstico detallado de `isTrustedApiRequest` (HTTP 403)**:
+     * Archivo: `packages/client/connection/src/api-request-trust.ts`.
+     * Cambio:
+       - Se introdujo el tipo `ApiRequestTrustResult = { trusted: true } | { trusted: false, reason: string }`.
+       - Se implementó la función `evaluateApiRequestTrust(request, trustedHosts, options): ApiRequestTrustResult` que diagnostica con precisión quirúrgica el motivo del rechazo:
+         * `missing Host header` (cabecera Host ausente).
+         * `unparseable Host header "<host>"` (Host con formato sintáctico inválido).
+         * `untrusted host "<host>" (<trustedHosts>)` (Host no confiable, indicando los hosts declarados o su ausencia).
+         * `Sec-Fetch-Site is "cross-site"` (solicitud cross-site rechazada).
+         * `unparseable Origin header "<origin>"` (Origin con sintaxis URL inválida).
+         * `origin mismatch ("<origin>" vs "<host>")` (desajuste de autoridad entre Origin y Host/X-Forwarded-Host).
+       - `TrustedApiRequestOptions` se amplió con `onReject?: (reason: string) => void` y `logger?: { warn: ... }`.
+       - `isTrustedApiRequest` delega en `evaluateApiRequestTrust` y emite diagnósticos cuando se proporciona un callback o logger.
+     * Pruebas añadidas: `packages/client/connection/tests/api-request-trust.host.spec.ts` (cubriendo los 7 motivos de rechazo, `onReject` y advertencias de log).
+  2. **Instrumentación y diagnóstico detallado de `BrowserAuth` (HTTP 401)**:
+     * Archivo: `packages/client/connection/src/browser-auth.ts`.
+     * Cambio:
+       - Se introdujo `BrowserAuthResult = { authenticated: true } | { authenticated: false, reason: string }` e interfaz `BrowserAuthLogger`.
+       - Se implementó `BrowserAuth.authenticate(request): BrowserAuthResult` diagnosticando el motivo exacto:
+         * `missing or unparseable request authority (Host)`.
+         * `missing Cookie header for authority "<authority>"`.
+         * `missing session cookie for authority "<authority>"`.
+         * `invalid or unparseable session cookie signature for authority "<authority>"`.
+         * `session cookie authority mismatch ("<cookieAuthority>" vs "<requestAuthority>")`.
+         * `session cookie expired at <fecha> (now: <fecha>)`.
+         * `session cookie issued in the future (issuedAt: ..., now: ...)`.
+         * `session cookie has invalid lifetime bounds`.
+       - `isAuthenticated(request)` delega transparentemente en `this.authenticate(request).authenticated`.
+       - `authorizeIndex` evalúa diagnósticos ante tokens erróneos (`invalid launch token`, `multiple launch tokens provided in query`, `method "<method>" is not GET`, `pathname "<path>" is not root (/)`) o falta de cookie, emitiendo warnings estructurados mediante `this.logger?.warn(...)`.
+     * Pruebas añadidas: `packages/client/connection/tests/browser-auth.host.spec.ts` (cubriendo todos los motivos diagnósticos, control temporal de expiración y verificación estricta de que tokens y firmas nunca se imprimen).
+  3. **Integración con el Gateway RPC y el Logger de Cordis**:
+     * Archivo: `packages/client/connection/src/rpc-host.ts`.
+     * Cambio: En `HostConnectionService.requestRejection`:
+       - Si `evaluateApiRequestTrust` falla, emite `this.ctx.logger.warn('client-connection: API request rejected (403): <reason>')` y retorna 403.
+       - Si `this.browserAuth.authenticate` falla, emite `this.ctx.logger.warn('client-connection: API request rejected (401): <reason>')` y retorna 401.
+     * Archivo: `packages/client/connection/src/index.ts`:
+       - Se inyecta `ctx.logger` en `BrowserAuth.create(...)`.
+       - Se exportan `evaluateApiRequestTrust`, `BrowserAuth`, `ApiRequestTrustResult`, `BrowserAuthResult` y `BrowserAuthLogger`.
+     * Pruebas añadidas: `packages/client/connection/tests/node-half.host.spec.ts` (verificando mediante espías que `ctx.logger.warn` emite las advertencias correspondientes en 403 y 401).
+  4. **Seguridad Estricta Garantizada**:
+     * Los valores de tokens de inicialización (`launchToken`), tokens de query (`/?token=...`), secretos de cifrado y firmas HMAC de cookies **NUNCA** se incluyen en los logs bajo ninguna circunstancia.
+     * Los mensajes de log contienen únicamente descriptores autoritativos (`Host`, `Origin`, expiraciones de tiempo), otorgando al administrador información 100% accionable para depurar proxies y accesos LAN sin comprometer la seguridad del sistema.
+* **Métricas de Calidad y Validación**:
+  - `pnpm exec vitest run packages/client/connection`: **13 suites, 140 tests PASADOS (100%)**.
+  - `pnpm exec vitest run packages/bundle/web-app packages/boot/app-boot`: **11 suites, 161 tests PASADOS (100%)**.
+  - `npm run build:lib:host`: **Compilación TypeScript sin errores**.
+  - `pnpm run lint:contracts-ready`: **2991 ficheros analizados con oxlint, 0 errores, 0 advertencias**.
+  - `pnpm run test:docs`: **15 checks de documentación pasados con éxito**.
+  - `scripts/verify-export-jsdoc.ts`: **100% de símbolos exportados documentados**.
 
 ---
 
@@ -485,32 +531,56 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 
 ## 7. Inventario de Archivos Creados y Modificados
 
-Todos los cambios implementados hasta el momento se encuentran estrictamente aislados en la raíz y en subdirectorios de despliegue, **sin haber modificado ningún archivo original de `packages/` ni de `apps/`**:
-
+### Archivos de Infraestructura y Configuración (Raíz y Docker)
 ```text
-/home/samuel/Documents/deepseek-harness/
-├── .dockerignore              # Exclusiones de contexto de compilación Docker
-├── docker-compose.yml         # Orquestador Docker Compose de producción (Fase 2)
-├── PROJECT_STATUS.md          # Documento maestro actual
-├── docker/                    # Infraestructura Docker oficial
-│   ├── Dockerfile             # Imagen reproducible Node 24 con compilación integrada
-│   ├── entrypoint.sh          # Script de inicio, permisos y propagación de señales
-│   ├── healthcheck.sh         # Sonda HTTP de comprobación de salud del servicio
-│   └── docker.patch.yml       # Parche Cordis para bind 0.0.0.0 sin alterar el core
-└── deploy/                    # Laboratorio de pruebas y reproducción (Fase 1)
-    └── lab/
-        ├── Dockerfile         # Imagen específica del laboratorio
-        ├── docker-compose.yml # Composición con Harness + Nginx Proxy
-        ├── nginx.conf         # Configuración del proxy (puertos 8080 y 8081)
-        ├── bind-all.patch.yml # Parche de prueba para 0.0.0.0
-        └── test-repro.sh      # Suite automatizada de reproducción de fallos
+├── .dockerignore                           # Exclusiones de contexto de compilación Docker
+├── .env.example                            # Plantilla declarativa exhaustiva de variables de entorno (Fase 4)
+├── docker-compose.yml                      # Orquestador Docker Compose de producción con soporte .env y puertos dinámicos
+├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.5
+├── docker/
+│   ├── Dockerfile                          # Imagen reproducible Node 24 con compilación integrada y pnpm preinstalado
+│   ├── entrypoint.sh                       # Entrypoint con variables DSH_*, PNPM_HOME persistente y arranque dsh web
+│   ├── healthcheck.sh                      # Sonda HTTP de comprobación de salud del servicio (401/200/303)
+│   └── docker.patch.yml                    # Parche Cordis para bind 0.0.0.0 sin alterar el core
+└── deploy/lab/                             # Laboratorio de pruebas y reproducción (Fase 1)
+    ├── Dockerfile                          # Imagen específica del laboratorio
+    ├── docker-compose.yml                  # Composición con Harness + Nginx Proxy
+    ├── nginx.conf                          # Configuración del proxy (puertos 8080 y 8081)
+    ├── bind-all.patch.yml                  # Parche de prueba para 0.0.0.0
+    └── test-repro.sh                       # Suite automatizada de reproducción de fallos
+```
+
+### Archivos de Código Fuente Modificados (Evolución Modular de Fases 3, 4, 5 y 6)
+```text
+packages/bundle/web-app/
+├── src/startup.ts                          # Soporte 0.0.0.0 con warning y lectura de DSH_HOST/DSH_PORT (Fases 3 y 4)
+├── src/index.ts                            # Inclusión de DSH_TRUSTED_HOSTS y fallback LAN (Fase 3)
+├── tests/startup.spec.ts                   # Tests unitarios de startup y variables de entorno
+└── tests/trusted-hosts.spec.ts             # Tests unitarios de resolución de trustedHosts
+
+packages/client/connection/
+├── src/api-request-trust.ts                # reverseProxy, evaluateApiRequestTrust y diagnóstico 403 (Fases 3 y 6)
+├── src/browser-auth.ts                     # reverseProxy, authenticate y diagnóstico 401 seguro (Fases 3 y 6)
+├── src/rpc-host.ts                         # Propagación de reverseProxy y logs warning en requestRejection (Fases 3 y 6)
+├── src/index.ts                            # Inyección de trustedHosts en HTML y paso de ctx.logger a BrowserAuth (Fases 3 y 6)
+├── src/client/index.ts                     # isAuthorizedHost para activar Settings UI en clientes LAN (Fase 3)
+├── tests/api-request-trust.host.spec.ts    # Tests unitarios de trust fence y diagnóstico de rechazo 403
+├── tests/browser-auth.host.spec.ts         # Tests unitarios de browser auth y diagnóstico seguro 401
+└── tests/node-half.host.spec.ts            # Tests unitarios de logging warning en requestRejection
+
+packages/boot/app-boot/
+└── src/profile.ts                          # packageManager explícito ('pnpm@11.7.0') en manifiesto de perfil (Fase 5)
+
+apps/cli/
+├── src/plugin.ts                           # Backfill automático de packageManager y COREPACK_ENABLE_DOWNLOAD_PROMPT=0 (Fase 5)
+└── tests/plugin.spec.ts                    # Tests unitarios de inicialización y migración de packageManager
 ```
 
 ---
 
 ## 8. Guía Rápida para Retomar el Proyecto en la Próxima Sesión
 
-Las **Fases 0, 1, 2, 3, 4 y 5** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 6** (Diagnóstico y Observabilidad Estructurada).
+Las **Fases 0, 1, 2, 3, 4, 5 y 6** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 7** (Escenarios Avanzados de Reverse Proxy).
 
 ### Comandos de Verificación Rápida
 ```bash
@@ -519,7 +589,7 @@ pnpm exec vitest run packages/bundle/web-app packages/client/connection packages
 
 # 2. Comprobar verificación de sintaxis y reglas de estilo
 git diff --check
-pnpm run lint
+pnpm run lint:contracts-ready
 
 # 3. Comprobar estado de Git
 git status
@@ -527,4 +597,4 @@ git status
 
 ### Instrucción para la Siguiente Sesión
 Para continuar el trabajo de forma directa, bastará con indicar:
-> *"Continuamos con la FASE 6 (Diagnóstico y Observabilidad Estructurada) según lo planificado en PROJECT_STATUS.md"*.
+> *"Continuamos con la FASE 7 (Escenarios Avanzados de Reverse Proxy) según lo planificado en PROJECT_STATUS.md"*.

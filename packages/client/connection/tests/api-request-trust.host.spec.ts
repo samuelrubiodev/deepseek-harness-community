@@ -1,7 +1,7 @@
 /** Behavior of the /api browser-trust fence (rebinding + cross-site defense). */
 
-import { describe, expect, it } from 'vitest'
-import { assertTrustedAuthority, isTrustedApiRequest } from '../src/api-request-trust.ts'
+import { describe, expect, it, vi } from 'vitest'
+import { assertTrustedAuthority, evaluateApiRequestTrust, isTrustedApiRequest } from '../src/api-request-trust.ts'
 
 function request(headers: Record<string, string | undefined>): { headers: Record<string, string | undefined> } {
   return { headers }
@@ -134,5 +134,75 @@ describe('isTrustedApiRequest', () => {
     expect(isTrustedApiRequest(request(tlsHeaders), ['harness.lan'], { reverseProxy: true })).toBe(true)
     // Refuses when forwarded host is untrusted
     expect(isTrustedApiRequest(request(tlsHeaders), ['other.lan'], { reverseProxy: true })).toBe(false)
+  })
+
+  it('provides structured diagnostic failure reasons in evaluateApiRequestTrust and logs warnings', () => {
+    // Missing Host header
+    const missingHost = evaluateApiRequestTrust(request({}), [])
+    expect(missingHost).toEqual({ trusted: false, reason: 'missing Host header' })
+
+    // Unparseable Host
+    const unparseableHost = evaluateApiRequestTrust(request({ host: 'bad host' }), [])
+    expect(unparseableHost.trusted).toBe(false)
+    expect((unparseableHost as { reason: string }).reason).toMatch(/unparseable Host header/)
+
+    // Untrusted Host with empty trustedHosts
+    const untrustedEmpty = evaluateApiRequestTrust(request({ host: '192.168.1.50:3080' }), [])
+    expect(untrustedEmpty).toEqual({
+      trusted: false,
+      reason: 'untrusted host "192.168.1.50:3080" (no trustedHosts configured)',
+    })
+
+    // Untrusted Host with declared trustedHosts
+    const untrustedDeclared = evaluateApiRequestTrust(request({ host: 'evil.example:3080' }), ['harness.lan'])
+    expect(untrustedDeclared).toEqual({
+      trusted: false,
+      reason: 'untrusted host "evil.example:3080" (trustedHosts: [harness.lan])',
+    })
+
+    // Sec-Fetch-Site cross-site
+    const crossSite = evaluateApiRequestTrust(request({
+      host: '127.0.0.1:3080',
+      'sec-fetch-site': 'cross-site',
+    }), [])
+    expect(crossSite).toEqual({
+      trusted: false,
+      reason: 'Sec-Fetch-Site is "cross-site"',
+    })
+
+    // Unparseable Origin
+    const unparseableOrigin = evaluateApiRequestTrust(request({
+      host: '127.0.0.1:3080',
+      origin: '://broken',
+    }), [])
+    expect(unparseableOrigin.trusted).toBe(false)
+    expect((unparseableOrigin as { reason: string }).reason).toMatch(/unparseable Origin header/)
+
+    // Origin mismatch
+    const originMismatch = evaluateApiRequestTrust(request({
+      host: '127.0.0.1:3080',
+      origin: 'http://evil.com',
+    }), [])
+    expect(originMismatch).toEqual({
+      trusted: false,
+      reason: 'origin mismatch ("evil.com" vs "127.0.0.1:3080")',
+    })
+
+    // onReject callback receives exact reason
+    const rejections: string[] = []
+    const rejected = isTrustedApiRequest(request({ host: 'untrusted.lan' }), [], {
+      onReject: reason => rejections.push(reason),
+    })
+    expect(rejected).toBe(false)
+    expect(rejections).toEqual(['untrusted host "untrusted.lan" (no trustedHosts configured)'])
+
+    // logger option logs warning
+    const warnSpy = vi.fn()
+    isTrustedApiRequest(request({ host: 'untrusted.lan' }), [], {
+      logger: { warn: warnSpy },
+    })
+    expect(warnSpy).toHaveBeenCalledWith(
+      'client-connection: API request rejected (403): untrusted host "untrusted.lan" (no trustedHosts configured)',
+    )
   })
 })

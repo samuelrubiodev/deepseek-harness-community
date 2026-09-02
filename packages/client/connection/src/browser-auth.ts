@@ -187,6 +187,16 @@ async function initializeSecret(credentials: CredentialProvider): Promise<Buffer
   return secret
 }
 
+/** Result of verifying browser session authentication. */
+export type BrowserAuthResult =
+  | { readonly authenticated: true }
+  | { readonly authenticated: false; readonly reason: string }
+
+/** Logger interface accepted by BrowserAuth for diagnostic warning emissions. */
+export interface BrowserAuthLogger {
+  warn: (message: string, ...args: unknown[]) => void
+}
+
 /**
  * Process launch-token exchange and persistent signed-cookie verification.
  * Connection loads the credential provider's signing secret during activation
@@ -201,6 +211,7 @@ export class BrowserAuth {
     private readonly secret: Buffer,
     maxAgeDays: number,
     private readonly reverseProxy: boolean = false,
+    private readonly logger?: BrowserAuthLogger,
   ) {
     this.launchToken = processLaunchToken(processOwner)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
@@ -217,6 +228,7 @@ export class BrowserAuth {
    * @param credentials - persistent credential provider for the Web profile.
    * @param maxAgeDays - positive absolute browser-cookie lifetime in days.
    * @param reverseProxy - whether to trust reverse-proxy headers for authority resolution.
+   * @param logger - optional logger for diagnostic authentication warnings.
    * @returns initialized authentication owner with the process owner's launch token.
    */
   static async create(
@@ -224,8 +236,9 @@ export class BrowserAuth {
     credentials: CredentialProvider,
     maxAgeDays: number,
     reverseProxy: boolean = false,
+    logger?: BrowserAuthLogger,
   ): Promise<BrowserAuth> {
-    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays, reverseProxy)
+    return new BrowserAuth(processOwner, await initializeSecret(credentials), maxAgeDays, reverseProxy, logger)
   }
 
   /**
@@ -286,12 +299,61 @@ export class BrowserAuth {
         res.end()
         return false
       }
-      this.writeUnauthorized(req, res)
+      let failureReason = 'invalid launch token'
+      if (tokens.length > 1) {
+        failureReason = 'multiple launch tokens provided in query'
+      } else if (req.method !== 'GET') {
+        failureReason = `method "${req.method}" is not GET`
+      } else if (url.pathname !== '/') {
+        failureReason = `pathname "${url.pathname}" is not root (/)`
+      } else if (authority === undefined) {
+        failureReason = 'missing or unparseable request authority (Host)'
+      }
+      this.writeUnauthorized(req, res, failureReason)
       return false
     }
-    if (this.isAuthenticated(req)) return true
-    this.writeUnauthorized(req, res)
+    const auth = this.authenticate(req)
+    if (auth.authenticated) return true
+    this.writeUnauthorized(req, res, auth.reason)
     return false
+  }
+
+  /**
+   * Verify the authority-bound browser cookie on a Host request with detailed failure diagnostic reason.
+   * @param request - request headers carrying Host and Cookie.
+   * @returns detailed authentication result.
+   */
+  authenticate(request: ConnectionTrustRequest): BrowserAuthResult {
+    const authority = requestAuthority(request.headers, this.reverseProxy)
+    if (authority === undefined) {
+      return { authenticated: false, reason: 'missing or unparseable request authority (Host)' }
+    }
+    const rawCookie = header(request.headers, 'cookie')
+    if (rawCookie === undefined) {
+      return { authenticated: false, reason: `missing Cookie header for authority "${authority}"` }
+    }
+    const value = cookieValue(rawCookie, cookieName(authority))
+    if (value === undefined) {
+      return { authenticated: false, reason: `missing session cookie for authority "${authority}"` }
+    }
+    const payload = decodeCookie(value, this.secret)
+    if (payload === undefined) {
+      return { authenticated: false, reason: `invalid or unparseable session cookie signature for authority "${authority}"` }
+    }
+    if (payload.authority !== authority) {
+      return { authenticated: false, reason: `session cookie authority mismatch ("${payload.authority}" vs "${authority}")` }
+    }
+    const now = Date.now()
+    if (payload.issuedAt > now) {
+      return { authenticated: false, reason: `session cookie issued in the future (issuedAt: ${String(payload.issuedAt)}, now: ${String(now)})` }
+    }
+    if (payload.expiresAt <= now) {
+      return { authenticated: false, reason: `session cookie expired at ${new Date(payload.expiresAt).toISOString()} (now: ${new Date(now).toISOString()})` }
+    }
+    if (payload.expiresAt <= payload.issuedAt || payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds) {
+      return { authenticated: false, reason: 'session cookie has invalid lifetime bounds' }
+    }
+    return { authenticated: true }
   }
 
   /**
@@ -300,21 +362,13 @@ export class BrowserAuth {
    * @returns true only for an unexpired cookie signed by this activation's loaded secret.
    */
   isAuthenticated(request: ConnectionTrustRequest): boolean {
-    const authority = requestAuthority(request.headers, this.reverseProxy)
-    const rawCookie = header(request.headers, 'cookie')
-    if (authority === undefined || rawCookie === undefined) return false
-    const value = cookieValue(rawCookie, cookieName(authority))
-    if (value === undefined) return false
-    const payload = decodeCookie(value, this.secret)
-    if (payload === undefined || payload.authority !== authority) return false
-    const now = Date.now()
-    return payload.issuedAt <= now
-      && payload.expiresAt > now
-      && payload.expiresAt > payload.issuedAt
-      && payload.expiresAt - payload.issuedAt <= this.maxAgeMilliseconds
+    return this.authenticate(request).authenticated
   }
 
-  private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse): void {
+  private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse, reason?: string): void {
+    if (this.logger !== undefined && reason !== undefined) {
+      this.logger.warn(`client-connection: index authorization failed (401): ${reason}`)
+    }
     res.writeHead(401, {
       'cache-control': 'no-store',
       'content-type': 'text/plain; charset=utf-8',
