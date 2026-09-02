@@ -61,6 +61,8 @@ docker compose ps
 docker compose logs -f harness
 ```
 
+如果在 NAS（Synology、Unraid、TrueNAS）或缺少构建工具链的服务器上运行，请使用 [deploy/nas/](deploy/nas/README.md) 中的模板并加载预构建镜像。日常运维——`/data` 备份、恢复、更新锚定与回滚——已脚本化于 [deploy/operations/](deploy/operations/README.md)。
+
 ## 配置
 
 所有配置项都是环境变量，在 [.env.example](.env.example) 中有详尽说明。将其复制为 `.env`，然后用 `docker compose up -d` 重启。
@@ -101,7 +103,14 @@ DSH_TRUSTED_HOSTS=192.168.1.50,harness.lan docker compose up -d
 ./scripts/sync-upstream.sh --merge
 ```
 
-同步工具及其冲突解决手册见 [deploy/sync/README.md](deploy/sync/README.md)。合并后重建容器：`docker compose up -d --build`。
+同步工具及其冲突解决手册见 [deploy/sync/README.md](deploy/sync/README.md)。合并前先固定回滚点并备份数据；合并本身不会触碰 `/data`：
+
+```sh
+./deploy/operations/update-image.sh save
+./deploy/operations/backup-data.sh --service
+```
+
+构建后重建容器（`docker compose up -d --build`）；若新镜像行为异常，用 `./deploy/operations/update-image.sh rollback` 把标签切回。完整的更新、备份、恢复与回滚流程（以及 NAS 部署模板）见 [deploy/operations/README.md](deploy/operations/README.md)。
 
 <a id="running-from-source-no-docker"></a>
 
@@ -137,6 +146,8 @@ docker/                    Dockerfile, entrypoint, healthcheck, Cordis bind patc
 docker-compose.yml         Production-ready orchestrator (uses .env)
 .env.example               Exhaustive declarative configuration template
 deploy/reverse-proxy/      Reference Nginx / Caddy / Traefik / Tunnel configs
+deploy/nas/                Synology / Unraid / TrueNAS / server Compose templates
+deploy/operations/         Backup, restore, update and rollback scripts and guide
 deploy/sync/               Upstream sync runbook
 scripts/sync-upstream.sh   Automated upstream merge with conflict simulation
 deploy/lab/                Reproducible test lab (proxy scenarios, WebSockets, SSL)

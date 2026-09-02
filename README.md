@@ -57,6 +57,8 @@ docker compose ps
 docker compose logs -f harness
 ```
 
+Running on a NAS (Synology, Unraid, TrueNAS) or a server without a build toolchain? Use the templates in [deploy/nas/](deploy/nas/README.md) and load a prebuilt image. Day-2 operations — backup of `/data`, restore, update pinning, and rollback — are scripted in [deploy/operations/](deploy/operations/README.md).
+
 ## Configuration
 
 All knobs are environment variables, documented exhaustively in [.env.example](.env.example). Copy it to `.env` and restart with `docker compose up -d`.
@@ -97,7 +99,14 @@ Reference configurations with TLS termination, WebSocket passthrough (`/api/remo
 ./scripts/sync-upstream.sh --merge
 ```
 
-The sync tool and its conflict-resolution runbook are documented in [deploy/sync/README.md](deploy/sync/README.md). After merging, recreate the containers: `docker compose up -d --build`.
+The sync tool and its conflict-resolution runbook are documented in [deploy/sync/README.md](deploy/sync/README.md). Before merging, pin a rollback point and back up your data; the merge itself never touches `/data`:
+
+```sh
+./deploy/operations/update-image.sh save
+./deploy/operations/backup-data.sh --service
+```
+
+Recreate after building (`docker compose up -d --build`), and if the new image misbehaves, move the tag back with `./deploy/operations/update-image.sh rollback`. Full update, backup, restore, and rollback procedures — plus NAS deployment templates — are in [deploy/operations/README.md](deploy/operations/README.md).
 
 ## Running from source (no Docker)
 
@@ -131,6 +140,8 @@ docker/                    Dockerfile, entrypoint, healthcheck, Cordis bind patc
 docker-compose.yml         Production-ready orchestrator (uses .env)
 .env.example               Exhaustive declarative configuration template
 deploy/reverse-proxy/      Reference Nginx / Caddy / Traefik / Tunnel configs
+deploy/nas/                Synology / Unraid / TrueNAS / server Compose templates
+deploy/operations/         Backup, restore, update and rollback scripts and guide
 deploy/sync/               Upstream sync runbook
 scripts/sync-upstream.sh   Automated upstream merge with conflict simulation
 deploy/lab/                Reproducible test lab (proxy scenarios, WebSockets, SSL)

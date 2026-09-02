@@ -1,0 +1,49 @@
+# ==============================================================================
+# DeepSeek Harness — TrueNAS SCALE (Apps > Install Custom App)
+# ==============================================================================
+# TrueNAS SCALE apps accept Docker Compose YAML through the custom-app form:
+#   1. Create a dataset pool/apps/dsh-data and pool/apps/dsh-workspace
+#      (Datasets > Add Dataset). ZFS snapshots of dsh-data are your backups.
+#   2. Build or import the image (SCALE may not have a pnpm toolchain for the
+#      fork build): from a workstation with the fork checked out:
+#        docker compose build
+#        docker save deepseek-harness:latest | ssh truenas \
+#          'sudo k3s ctr images import -'   # older middleware uses 'sudo docker load'
+#      On SCALE 24.10+ the runtime is Docker, so `sudo docker load` applies.
+#   3. Apps > Discover Applications > Install Manual App: paste the service
+#      below (the Apps UI may rename the top-level `services` keys; keep the
+#      environment and volume mappings), or run this file directly:
+#        sudo cp deploy/nas/docker-compose.truenas.yml /mnt/tank/apps/dsh/
+#        cd /mnt/tank/apps/dsh && sudo docker compose up -d
+#
+# Host paths use the tank pool as example; replace tank with your pool name.
+# ==============================================================================
+
+services:
+  harness:
+    image: deepseek-harness:latest
+    container_name: deepseek-harness
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    environment:
+      NODE_ENV: production
+      DSH_HOST: 0.0.0.0
+      DSH_PORT: 3080
+      # REQUIRED for LAN access: every address users type in the browser.
+      DSH_TRUSTED_HOSTS: "192.168.1.50:3080,harness.lan"
+      # Set true only behind a reverse proxy that forwards X-Forwarded-*
+      # (Traefik built into SCALE apps or your own proxy):
+      DSH_REVERSE_PROXY: "false"
+      DSH_HOME: /data
+      WORKSPACE_DIR: /workspace
+      DEEPSEEK_API_KEY: ""
+      DEEPSEEK_BASE_URL: ""
+    volumes:
+      - /mnt/tank/apps/dsh-data:/data
+      - /mnt/tank/apps/dsh-workspace:/workspace
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

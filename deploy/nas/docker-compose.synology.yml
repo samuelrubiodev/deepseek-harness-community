@@ -1,0 +1,48 @@
+# ==============================================================================
+# DeepSeek Harness — Synology DSM (Container Tools / Container Manager)
+# ==============================================================================
+# Usage on DSM 7.2+ (Container Tools > Project > Add):
+#   1. Choose project name "deepseek-harness" and path /volume1/docker/dsh.
+#   2. Paste this file (Path: ./docker-compose.yml) or upload it there.
+#   3. Edit DSH_TRUSTED_HOSTS to your LAN IP or domain BEFORE first start.
+#   4. Build or import the image first (DSM has no pnpm toolchain): from a
+#      workstation with the fork checked out:
+#        docker compose build
+#        docker save deepseek-harness:latest | ssh nas "docker load"
+#      Or push to your registry and change `image:` accordingly.
+#
+# Bind mounts (not named volumes) keep /data visible in File Station, so the
+# Synology Hyper Backup / snapshots tooling can archive it directly; use
+# deploy/operations/backup-data.sh for app-consistent tarballs.
+# The container runs as root inside; host directories will be root-owned.
+# ==============================================================================
+
+services:
+  harness:
+    image: deepseek-harness:latest
+    container_name: deepseek-harness
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    environment:
+      NODE_ENV: production
+      DSH_HOST: 0.0.0.0
+      DSH_PORT: 3080
+      # REQUIRED for LAN access: every address users type in the browser,
+      # comma-separated. Requests from any other Host header get HTTP 403.
+      DSH_TRUSTED_HOSTS: "192.168.1.50:3080,harness.lan"
+      # Set true only behind a reverse proxy that forwards X-Forwarded-*:
+      DSH_REVERSE_PROXY: "false"
+      DSH_HOME: /data
+      WORKSPACE_DIR: /workspace
+      # Optional: leave empty to enter the key in the Web UI instead.
+      DEEPSEEK_API_KEY: ""
+      DEEPSEEK_BASE_URL: ""
+    volumes:
+      - /volume1/docker/dsh/data:/data
+      - /volume1/docker/dsh/workspace:/workspace
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

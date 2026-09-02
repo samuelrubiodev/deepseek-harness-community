@@ -1,6 +1,6 @@
 # DeepSeek Harness Community Fork: Documento Maestro de Arquitectura, Auditoría, Estado y Hoja de Ruta
 
-**Versión del documento**: 1.8 (Fases 0, 1, 2, 3, 4, 5, 6, 7, 8 y 9 Completadas con Éxito)
+**Versión del documento**: 1.9 (Fases 0 a 10 Completadas con Éxito — Proyecto Finalizado)
 **Fecha**: Septiembre 2026
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
@@ -45,7 +45,7 @@
    * 6.7 FASE 9: Release Candidate y Validación Integral
    * 6.8 FASE 10: Despliegue en Producción y Operaciones
 7. [Inventario de Archivos Creados y Modificados](#7-inventario-de-archivos-creados-y-modificados)
-8. [Guía Rápida para Retomar el Proyecto en la Próxima Sesión](#8-guía-rápida-para-retomar-el-proyecto-en-la-próxima-sesión)
+8. [Estado Final del Proyecto (Fases 0–10 Completadas)](#8-estado-final-del-proyecto-fases-010-completadas)
 
 ---
 
@@ -97,7 +97,7 @@ El desarrollo se ejecuta estrictamente por fases secuenciales. Cada fase finaliz
          │
 [FASE 9: Release Candidate]            --> COMPLETADA (Suite 17389 tests OK, labs 7/7, README bilingüe)
          │
-[FASE 10: Producción y Operaciones]    --> PENDIENTE
+[FASE 10: Producción y Operaciones]      --> COMPLETADA (plantillas NAS, backup/restore, rollback)
 ```
 
 ---
@@ -348,7 +348,7 @@ volumes:
 
 ## 6. Hoja de Ruta Detallada de Fases Futuras (Fases 3 a 10)
 
-Esta sección documentaba las tareas de cada fase. **Fases 3 a 9 están completadas y validadas**; solo la Fase 10 queda pendiente.
+Esta sección documentaba las tareas de cada fase. **Las Fases 3 a 10 están completadas y validadas**.
 
 ---
 
@@ -604,12 +604,34 @@ Esta sección documentaba las tareas de cada fase. **Fases 3 a 9 están completa
 
 ---
 
-### 6.8 FASE 10: Despliegue en Producción y Operaciones
-* **Objetivo**: Materiales y guías para administradores de sistemas y usuarios domésticos.
-* **Tareas**:
-  1. Plantillas de `docker-compose.yml` para servidores locales y NAS (Synology, Unraid, TrueNAS).
-  2. Guías de copias de seguridad (backup de `/data`) y restauración.
-  3. Procedimientos de rollback ante actualizaciones fallidas.
+### 6.8 FASE 10: Despliegue en Producción y Operaciones (COMPLETED SUCCESSFULLY)
+* **Goal**: Ship the production operations materials for system administrators and home users — NAS/server deployment templates, `/data` backup and restore, and rollback procedures for failed updates.
+* **Status**: **100% IMPLEMENTED AND VALIDATED**.
+* **Deliverables and Completed Milestones**:
+  1. **NAS and server deployment templates (`deploy/nas/`)**:
+     * `docker-compose.synology.yml` — Synology DSM (Container Tools), bind mounts under `/volume1/docker/dsh/` so Hyper Backup sees the state; sudo-aware image import notes.
+     * `docker-compose.unraid.yml` — Unraid via Docker Compose Manager, `/mnt/user/appdata/` layout, CA Backup compatibility; documents the root-ownership reality of the image (no PUID/PGID).
+     * `docker-compose.truenas.yml` — TrueNAS SCALE custom app or plain compose, dedicated datasets with ZFS snapshots as the platform backup layer.
+     * `docker-compose.server.yml` — generic Linux server with no build toolchain: prebuilt image, `/srv/dsh/` bind mounts, `.env`-driven port mapping.
+     * `deploy/nas/README.md` — guide: `docker save`/`load` image delivery, pre-start trust configuration, host-specific port/proxy/ownership notes.
+  2. **Backup and restore of `/data` (`deploy/operations/`)**:
+     * `backup-data.sh` — archives the data volume (optionally `/workspace` too) from a throwaway read-only container into a timestamped gzip tarball, verified with `tar -t` and a SHA-256 sidecar. Excludes the regenerable pnpm store by default (`--full` includes it). Resolves Compose resource names to project-prefixed volumes (`dsh-data` → `deepseek-harness_dsh-data`) through the `com.docker.compose.volume` label, with an explicit error on ambiguity. `--service` stops and restarts the attached containers via `docker ps --filter volume=`, so it works without the Compose CLI (Synology).
+     * `restore-data.sh` — refuses to restore on checksum mismatch, `--verify-only` proves archives, merge-by-default restore (append-style session data survives) with `--replace` for exact point-in-time recovery, `--service` stop/restart around the write.
+     * `deploy/operations/README.md` — full operations guide: what lives in `/data` and what is regenerable, cron/DSM scheduling, off-host copies, disaster recovery on a fresh machine, and the security note that archives contain credentials and session history.
+  3. **Image update and rollback procedures**:
+     * `update-image.sh` — `save` pins the image the harness container runs as `deepseek-harness:rollback-<timestamp>`; `rollback [REF]` moves `latest` back and recreates the service with `--force-recreate` (volumes never touched); `list` shows references and the running image. Falls back to the plain container name and prints manual recreate steps on Compose-less hosts.
+     * The guide documents the compatibility rule the upstream pre-release stance implies: session/SQLite schema versions only move forward, so the safe upgrade order is `backup-data.sh` → `update-image.sh save` → new image → `up -d`, and a rolled-back app that refuses new-format data is recovered by restoring the matching backup.
+     * Root `README.md` / `README.zh.md` upgraded with the pin-and-backup update flow and links to both new directories; directory layout updated in both languages.
+  4. **Bug fix discovered by real-deployment testing**:
+     * `docker/healthcheck.sh` read only `PORT`; deployments setting only `DSH_PORT` (root compose maps `${DSH_PORT}` and the entrypoint exports it) probed the wrong port and reported the container unhealthy. The probe now follows `DSH_PORT` → `PORT` → 3080, matching the entrypoint precedence exactly.
+* **Quality Metrics and Validation**:
+  - Backup → checksum → restore cycle executed end-to-end against a live isolated Compose project: `--replace` deleted post-backup witness files; a separate scratch-volume run proved merge restore keeps volume-only files while restoring archived ones: **PASSED**.
+  - Tampered-archive guard: restore aborted with exit 1 on SHA-256 mismatch: **PASSED**.
+  - `update-image.sh save / list / rollback` exercised against a real container, including recovery from a deliberately broken `latest` tag (rolled back to the pinned image, recreated container reached `(healthy)`): **PASSED**.
+  - Healthcheck fix verified in-container on a `DSH_PORT=3081` deployment: script exits 0, container transitions to `(healthy)`: **PASSED**.
+  - All four NAS templates and the root compose: `docker compose config -q` validation **0 errors**.
+  - `deploy/operations/README.md`, `deploy/nas/README.md` and all scripts in English, registered as translation-pairing exclusions; `pnpm run test:docs`: **15 passed, 0 failed**.
+  - `git diff --check`: **clean**.
 
 ---
 
@@ -620,11 +642,11 @@ Esta sección documentaba las tareas de cada fase. **Fases 3 a 9 están completa
 ├── .dockerignore                           # Exclusiones de contexto de compilación Docker
 ├── .env.example                            # Plantilla declarativa exhaustiva de variables de entorno (Fase 4)
 ├── docker-compose.yml                      # Orquestador Docker Compose de producción con soporte .env y puertos dinámicos
-├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.7
+├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.9
 ├── docker/
 │   ├── Dockerfile                          # Imagen reproducible Node 24 con compilación integrada y pnpm preinstalado
 │   ├── entrypoint.sh                       # Entrypoint con variables DSH_*, PNPM_HOME persistente y arranque dsh web
-│   ├── healthcheck.sh                      # Sonda HTTP de comprobación de salud del servicio (401/200/303)
+│   ├── healthcheck.sh                      # Sonda HTTP de salud (401/200/303), sigue DSH_PORT → PORT (Fase 10)
 │   └── docker.patch.yml                    # Parche Cordis para bind 0.0.0.0 sin alterar el core
 ├── deploy/sync/                            # Estrategia de sincronización upstream y runbook operativo (Fase 8)
 │   └── README.md                           # Guía exhaustiva en inglés sobre sincronización, topología de ramas y resolución de conflictos
@@ -633,6 +655,17 @@ Esta sección documentaba las tareas de cada fase. **Fases 3 a 9 están completa
 │   ├── nginx.conf                          # Plantilla Nginx con SSL, WebSockets y streaming
 │   ├── Caddyfile                           # Plantilla Caddy con TLS automático y streaming
 │   └── docker-compose.traefik.yml          # Plantilla Compose con Traefik v3 y ACME Let's Encrypt
+├── deploy/nas/                             # Plantillas de despliegue NAS/servidor (Fase 10)
+│   ├── README.md                           # Guía en inglés: entrega de imagen, configuración previa, notas por host
+│   ├── docker-compose.synology.yml         # Synology DSM con bind mounts en /volume1 y Hyper Backup
+│   ├── docker-compose.unraid.yml           # Unraid con appdata en /mnt/user y compatibilidad CA Backup
+│   ├── docker-compose.truenas.yml          # TrueNAS SCALE con datasets ZFS como capa de snapshots
+│   └── docker-compose.server.yml           # Servidor Linux genérico con imagen preconstruida y .env
+├── deploy/operations/                      # Operaciones de producción: backup, restore, rollback (Fase 10)
+│   ├── README.md                           # Guía operativa completa en inglés (targets, backup, update, rollback, fallos)
+│   ├── backup-data.sh                      # Backup tar.gz + SHA-256 del volumen /data, exclusión de pnpm store, --service
+│   ├── restore-data.sh                     # Restore con verificación de checksum, merge o --replace exacto, --verify-only
+│   └── update-image.sh                     # save/rollback/list de referencias rollback-<timestamp> sobre la imagen local
 └── deploy/lab/                             # Laboratorio de pruebas y reproducción (Fases 1 y 7)
     ├── Dockerfile                          # Imagen específica del laboratorio
     ├── docker-compose.yml                  # Composición con Harness + Nginx Proxy (8080/8443) + Caddy Proxy (8444)
@@ -642,11 +675,11 @@ Esta sección documentaba las tareas de cada fase. **Fases 3 a 9 están completa
     └── test-proxy.sh                       # Suite automatizada de validación de proxies y WebSockets (Fase 7)
 ```
 
-### Archivos de Código Fuente y Scripts Modificados (Evolución Modular de Fases 3 a 9)
+### Archivos de Código Fuente y Scripts Modificados (Evolución Modular de Fases 3 a 10)
 ```text
 scripts/
 ├── sync-upstream.sh                        # Script automatizado de sincronización upstream con simulación de conflictos (Fase 8)
-└── translation-pairing.manifest.json       # Exclusión de deploy/reverse-proxy/README.md y deploy/sync/README.md (Fases 7 y 8)
+└── translation-pairing.manifest.json       # Exclusiones de pairing: deploy/{reverse-proxy,sync,operations,nas}/README.md (Fases 7, 8 y 10)
 
 packages/bundle/web-app/
 ├── src/startup.ts                          # Soporte 0.0.0.0 con warning y lectura de DSH_HOST/DSH_PORT (Fases 3 y 4)
@@ -678,16 +711,25 @@ apps/cli/
 ├── src/plugin.ts                           # Backfill automático de packageManager y COREPACK_ENABLE_DOWNLOAD_PROMPT=0 (Fase 5)
 └── tests/plugin.spec.ts                    # Tests unitarios de inicialización y migración de packageManager
 
-README.md / README.zh.md / README.i18n.yaml # README del fork reescrito para usuarios finales, par bilingüe re-registrado (Fase 9)
+README.md / README.zh.md / README.i18n.yaml # README del fork reescrito para usuarios finales (Fase 9), actualizado con flujo save+backup y enlaces a deploy/{nas,operations} (Fase 10)
+
+docker/healthcheck.sh                       # Puerto de sonda sigue DSH_PORT → PORT → 3080 (fix Fase 10)
 ```
 
 ---
 
-## 8. Guía Rápida para Retomar el Proyecto en la Próxima Sesión
+## 8. Estado Final del Proyecto (Fases 0–10 Completadas)
 
-Las **Fases 0, 1, 2, 3, 4, 5, 6, 7, 8 y 9** están completamente terminadas y verificadas con éxito. El repositorio cuenta con infraestructura Docker, compatibilidad LAN y proxies inversos, observabilidad diagnóstica, un sistema robusto de sincronización con upstream y un README bilingüe listo para usuarios finales (release candidate congelada).
+**Las diez fases están terminadas y verificadas.** El repositorio cuenta con:
 
-El estado está completamente preparado para avanzar de inmediato a la **FASE 10** (Despliegue en Producción y Operaciones).
+* Infraestructura Docker reproducible (imagen base, volúmenes, healthcheck).
+* Acceso LAN y tras proxies inversos (Nginx, Caddy, Traefik, tunnels) con modelo de confianza declarativo.
+* Configuración por variables de entorno (`DSH_HOST`, `DSH_PORT`, `DSH_TRUSTED_HOSTS`, `DSH_REVERSE_PROXY`).
+* Gestión de plugins fiable en contenedores (`packageManager`, store pnpm persistente).
+* Diagnósticos estructurados 403/401 sin fuga de credenciales.
+* Sincronización con upstream automatizada con simulación de conflictos.
+* Release candidate validada (suite completa 17.389 tests, laboratorios 7/7, README bilingüe).
+* Operaciones de producción: plantillas NAS (Synology/Unraid/TrueNAS/servidor), backup/restore de `/data` con verificación SHA-256, y rollback de imagen anclado (`update-image.sh save/rollback`).
 
 ### Comandos de Verificación Rápida
 ```bash
@@ -697,15 +739,19 @@ El estado está completamente preparado para avanzar de inmediato a la **FASE 10
 # 2. Comprobar que los tests de las áreas modificadas pasan limpiamente
 pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
-# 3. Comprobar verificación de sintaxis, linter y documentación
+# 3. Comprobar sintaxis shell, linter, documentación y whitespace
+bash -n deploy/operations/*.sh deploy/nas/*.yml 2>/dev/null || bash -n deploy/operations/*.sh
+docker compose -f deploy/nas/docker-compose.synology.yml -p dsh-check config -q   # (repetir para cada plantilla)
 git diff --check
-pnpm run lint:contracts-ready
 pnpm run test:docs
 
-# 4. Comprobar estado de Git
-git status
+# 4. Comprobar el ciclo de operaciones sobre el despliegue activo
+./deploy/operations/backup-data.sh --output /tmp/dsh-backups
+./deploy/operations/restore-data.sh --latest --output /tmp/dsh-backups --verify-only
+./deploy/operations/update-image.sh list
 ```
 
-### Instrucción para la Siguiente Sesión
-Para continuar el trabajo de forma directa, bastará con indicar:
-> *"Continuamos con la FASE 10 (Despliegue en Producción y Operaciones) según lo planificado en PROJECT_STATUS.md"*.
+### Trabajo Futuro Sugerido (fuera del alcance de las 10 fases)
+* Ejecutar `pnpm run test:coverage` en CI sobre el push del release (delegado en Fase 9).
+* Etiquetar el release (`git tag v0.1.2-alpha.5-community.1`) y publicar la imagen en un registry público o privado.
+* Validar manualmente una plantilla NAS en hardware real cuando esté disponible.

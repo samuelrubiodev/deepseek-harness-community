@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-PORT="${PORT:-3080}"
+# DSH_PORT wins over PORT so deployments that set only DSH_PORT stay healthy.
+PORT="${DSH_PORT:-${PORT:-3080}}"
 URL="http://127.0.0.1:${PORT}/"
 
 # Probe the HTTP server.

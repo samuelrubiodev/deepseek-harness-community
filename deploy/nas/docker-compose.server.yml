@@ -1,0 +1,48 @@
+# ==============================================================================
+# DeepSeek Harness — generic self-hosted Linux server (standalone Compose)
+# ==============================================================================
+# The repository root docker-compose.yml builds from source. This variant is
+# for servers that only run prebuilt images (CI-built, registry-pushed, or
+# docker save/load): no repository checkout, no build context.
+#
+# Layout:
+#   /opt/deepseek-harness/
+#   ├── docker-compose.yml      (this file)
+#   └── .env                    (copy of .env.example, edited)
+#   /srv/dsh/data      -> /data       (app state, credentials, sessions)
+#   /srv/dsh/workspace -> /workspace  (agent working files)
+#
+# Run:
+#   mkdir -p /opt/deepseek-harness /srv/dsh/data /srv/dsh/workspace
+#   cp .env.example /opt/deepseek-harness/.env && edit it
+#   cd /opt/deepseek-harness && docker compose up -d
+# ==============================================================================
+
+services:
+  harness:
+    image: deepseek-harness:latest
+    container_name: deepseek-harness
+    restart: unless-stopped
+    ports:
+      - "${DSH_PORT:-3080}:${DSH_PORT:-3080}"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      DSH_HOME: /data
+      WORKSPACE_DIR: /workspace
+      DSH_HOST: ${DSH_HOST:-0.0.0.0}
+      DSH_PORT: ${DSH_PORT:-3080}
+      DSH_TRUSTED_HOSTS: ${DSH_TRUSTED_HOSTS:-}
+      DSH_REVERSE_PROXY: ${DSH_REVERSE_PROXY:-false}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-}
+    volumes:
+      - /srv/dsh/data:/data
+      - /srv/dsh/workspace:/workspace
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

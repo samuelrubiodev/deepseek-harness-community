@@ -1,0 +1,46 @@
+# ==============================================================================
+# DeepSeek Harness — Unraid (Docker Compose plugin or a manually created app)
+# ==============================================================================
+# With the Community Apps "Docker Compose Manager" plugin:
+#   1. Add a new stack named deepseek-harness and paste this file.
+#   2. Build or import the image first (Unraid has no pnpm toolchain): from a
+#      workstation with the fork checked out:
+#        docker compose build
+#        docker save deepseek-harness:latest | ssh unraid "docker load"
+#   3. Start the stack; open http://<unraid-ip>:3080/?token=... from the
+#      stack log.
+#
+# Bind mounts under /mnt/user/appdata keep state inside the array, so the
+# "CA Backup / Restore Appdata" plugin archives it too; use
+# deploy/operations/backup-data.sh for app-consistent tarballs of the volumes.
+# Adjust the pool/share names (below: default "user" share) to your layout.
+# ==============================================================================
+
+services:
+  harness:
+    image: deepseek-harness:latest
+    container_name: deepseek-harness
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    environment:
+      NODE_ENV: production
+      DSH_HOST: 0.0.0.0
+      DSH_PORT: 3080
+      # REQUIRED for LAN access: every address users type in the browser.
+      DSH_TRUSTED_HOSTS: "192.168.1.50:3080,harness.lan"
+      # Set true only behind a reverse proxy that forwards X-Forwarded-*
+      # (Swag / NPM / Traefik add-on):
+      DSH_REVERSE_PROXY: "false"
+      DSH_HOME: /data
+      WORKSPACE_DIR: /workspace
+      DEEPSEEK_API_KEY: ""
+      DEEPSEEK_BASE_URL: ""
+    volumes:
+      - /mnt/user/appdata/deepseek-harness/data:/data
+      - /mnt/user/appdata/deepseek-harness/workspace:/workspace
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
