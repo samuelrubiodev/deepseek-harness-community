@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable
+RUN npm install -g pnpm@11.7.0 && corepack enable && corepack prepare pnpm@11.7.0 --activate
 
 ARG DSH_CLIENT_COMMIT_HASH=0000000
 ENV DSH_CLIENT_COMMIT_HASH=${DSH_CLIENT_COMMIT_HASH}

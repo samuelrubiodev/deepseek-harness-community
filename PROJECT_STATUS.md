@@ -1,6 +1,6 @@
 # DeepSeek Harness Community Fork: Documento Maestro de Arquitectura, Auditoría, Estado y Hoja de Ruta
 
-**Versión del documento**: 1.3 (Fases 0, 1, 2, 3 y 4 Completadas con Éxito)
+**Versión del documento**: 1.4 (Fases 0, 1, 2, 3, 4 y 5 Completadas con Éxito)
 **Fecha**: Septiembre 2026
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
@@ -410,12 +410,30 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 
 ---
 
-### 6.3 FASE 5: Plugins en Entornos Docker
-* **Objetivo**: Permitir que el ecosistema de plugins y herramientas de DeepSeek Harness funcione de forma fiable dentro de un contenedor sin depender de descargas frágiles en caliente.
-* **Tareas**:
-  1. Analizar si los plugins comunes pueden preinstalarse o incluirse en una capa de la imagen.
-  2. Corregir la generación de enlaces simbólicos de `healProfilesModuleFallback` para que utilicen rutas relativas o resistan el montaje de `/data` como volumen externo.
-  3. Asegurar que si el usuario añade un plugin mediante `dsh plugin`, el subproceso `pnpm` funcione limpiamente con caché en `/data/.pnpm-store`.
+### 6.3 FASE 5: Plugins en Entornos Docker (COMPLETADA CON ÉXITO)
+* **Objetivo**: Permitir que el ecosistema de plugins y herramientas de DeepSeek Harness funcione de forma fiable dentro de un contenedor sin depender de descargas frágiles en caliente ni sufrir bloqueos por Corepack.
+* **Estado**: **100% IMPLEMENTADA Y VALIDADA**.
+* **Diagnóstico Empírico del Fallo**:
+  - Al ejecutar `dsh plugin --profile web list` en Docker, el subproceso `pnpm` arrojaba un error de Corepack: `Error when performing the request to https://registry.npmjs.org/pnpm/latest` con `ConnectTimeoutError: Connect Timeout Error`.
+  - Causa raíz: `initProfile` generaba un `package.json` sin el campo `packageManager`. En ausencia de este campo, Corepack intenta consultar de forma síncrona el registro de npm en busca de la versión más reciente, bloqueando y fallando en entornos offline o con resolución DNS restringida en contenedores.
+* **Cambios implementados**:
+  1. **Declaración explícita de `packageManager` en la inicialización del perfil**:
+     * Archivo: `packages/boot/app-boot/src/profile.ts`.
+     * Cambio: Se añadió `packageManager?: string` a la interfaz `ProfileManifest` y se configuró `packageManager: 'pnpm@11.7.0'` en el manifiesto inicial creado por `initProfile`.
+  2. **Backfill automático y prevención de prompts en `runPlugin`**:
+     * Archivo: `apps/cli/src/plugin.ts`.
+     * Cambio: Si un perfil ya existente en disco carece de `packageManager`, `runPlugin` lo actualiza automáticamente a `pnpm@11.7.0` antes de invocar el subproceso. Se inyecta `COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'` en las variables de entorno de ejecución de `spawnSync`.
+     * Pruebas añadidas: `apps/cli/tests/plugin.spec.ts` (verificando la inicialización con `packageManager`, el backfill en perfiles heredados y la propagación de entorno).
+  3. **Preinstalación global desacoplada en Dockerfile**:
+     * Archivo: `docker/Dockerfile`.
+     * Cambio: Se incorporó `RUN npm install -g pnpm@11.7.0 && corepack enable && corepack prepare pnpm@11.7.0 --activate`, garantizando que el binario de `pnpm` esté preinstalado en el contenedor de forma nativa e inmutable, sin depender de descargas en caliente en runtime.
+  4. **Caché persistente de paquetes en volumen de datos**:
+     * Archivo: `docker/entrypoint.sh`.
+     * Cambio: Se configuró `export PNPM_HOME="${DSH_HOME:-/data}/.pnpm"`, `export PATH="$PNPM_HOME:$PATH"` y `export npm_config_store_dir="${DSH_HOME:-/data}/.pnpm-store"`. Cualquier paquete instalado por el usuario persiste en el volumen `/data` y sobrevive a la recreación del contenedor.
+* **Métricas de Calidad y Validación**:
+  - Demostración en contenedor real: `docker run --rm deepseek-harness:latest dsh plugin --profile web list` ejecutado con éxito inmediato (código de salida 0, sin cuelgues ni accesos externos a red).
+  - Tests de `app-boot` y `apps/cli`: **8 suites, 136 tests PASADOS (100%)**.
+  - Linter (`oxlint`): **2991 archivos analizados, 0 errores, 0 advertencias**.
 
 ---
 
@@ -492,12 +510,12 @@ Todos los cambios implementados hasta el momento se encuentran estrictamente ais
 
 ## 8. Guía Rápida para Retomar el Proyecto en la Próxima Sesión
 
-Las **Fases 0, 1, 2, 3 y 4** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 5** (Plugins en Entornos Docker).
+Las **Fases 0, 1, 2, 3, 4 y 5** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 6** (Diagnóstico y Observabilidad Estructurada).
 
 ### Comandos de Verificación Rápida
 ```bash
 # 1. Comprobar que los tests de las áreas modificadas pasan limpiamente
-pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/client/ui-settings
+pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
 # 2. Comprobar verificación de sintaxis y reglas de estilo
 git diff --check
@@ -509,4 +527,4 @@ git status
 
 ### Instrucción para la Siguiente Sesión
 Para continuar el trabajo de forma directa, bastará con indicar:
-> *"Continuamos con la FASE 5 (Plugins en Entornos Docker) según lo planificado en PROJECT_STATUS.md"*.
+> *"Continuamos con la FASE 6 (Diagnóstico y Observabilidad Estructurada) según lo planificado en PROJECT_STATUS.md"*.

@@ -129,12 +129,21 @@ export function runPlugin(profile: string, args: readonly string[]): number {
     process.stderr.write(`${NAME}: initialized profile ${profile} at ${dir}\n`)
   }
   const before = readProfileManifest(NAME, dir)
+  if (before.packageManager === undefined) {
+    before.packageManager = 'pnpm@11.7.0'
+    writeProfileManifest(dir, before)
+  }
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: '0',
+  }
   // Windows resolves pnpm through its .cmd shim, which spawn() refuses
   // without a shell since the CVE-2024-27980 hardening.
   const result = spawnSync('pnpm', args.map(argument => anchorPathSpec(argument, process.cwd())), {
     cwd: dir,
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    env,
   })
   if (result.error !== undefined) {
     const code = (result.error as NodeJS.ErrnoException).code

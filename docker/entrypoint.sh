@@ -10,6 +10,11 @@ export DSH_HOST="${DSH_HOST:-0.0.0.0}"
 export PORT="${DSH_PORT:-${PORT:-3080}}"
 export DSH_PORT="${PORT}"
 
+# Configure persistent pnpm paths inside DSH_HOME (/data)
+export PNPM_HOME="${DSH_HOME:-/data}/.pnpm"
+export PATH="$PNPM_HOME:$PATH"
+export npm_config_store_dir="${DSH_HOME:-/data}/.pnpm-store"
+
 echo "[dsh-docker] Starting DeepSeek Harness..."
 echo "[dsh-docker] DSH_HOME=${DSH_HOME:-/data}"
 echo "[dsh-docker] WORKSPACE=${WORKSPACE_DIR:-/workspace}"

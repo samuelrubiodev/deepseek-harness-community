@@ -85,6 +85,7 @@ export interface DshManifestSection {
 /** The slice of package.json both profiles and bundles use. */
 export interface ProfileManifest {
   name?: string
+  packageManager?: string
   dependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   dsh?: DshManifestSection
@@ -205,6 +206,7 @@ export function initProfile(
     const manifest: ProfileManifest & { private: boolean } = {
       name: `dsh-profile-${basename(dir)}`,
       private: true,
+      packageManager: 'pnpm@11.7.0',
       dependencies: {},
       dsh: { profile: { bundles: [...bundles], patchReload } },
     }
