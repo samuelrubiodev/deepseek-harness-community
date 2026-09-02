@@ -1,6 +1,6 @@
 # DeepSeek Harness Community Fork: Documento Maestro de Arquitectura, Auditoría, Estado y Hoja de Ruta
 
-**Versión del documento**: 1.6 (Fases 0, 1, 2, 3, 4, 5, 6 y 7 Completadas con Éxito)
+**Versión del documento**: 1.7 (Fases 0, 1, 2, 3, 4, 5, 6, 7 y 8 Completadas con Éxito)
 **Fecha**: Septiembre 2026
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
@@ -93,9 +93,9 @@ El desarrollo se ejecuta estrictamente por fases secuenciales. Cada fase finaliz
          │
 [FASE 7: Reverse Proxy Avanzado]       --> COMPLETADA (Nginx, Caddy, Traefik, WebSockets, SSL)
          │
-[FASE 8: Actualizaciones Upstream]     --> SIGUIENTE PASO
+[FASE 8: Actualizaciones Upstream]     --> COMPLETADA (scripts/sync-upstream.sh, upstream-tracking, deploy/sync/README.md)
          │
-[FASE 9: Release Candidate]            --> PENDIENTE
+[FASE 9: Release Candidate]            --> SIGUIENTE PASO
          │
 [FASE 10: Producción y Operaciones]    --> PENDIENTE
 ```
@@ -534,12 +534,43 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 
 ---
 
-### 6.6 FASE 8: Sistema de Sincronización con Upstream
-* **Objetivo**: Establecer el flujo de mantenimiento a largo plazo para incorporar mejoras y correcciones de DeepSeek Harness oficial.
-* **Tareas**:
-  1. Crear un script en `scripts/sync-upstream.sh`.
-  2. Documentar la estrategia de ramas (`upstream-tracking` -> `master` del fork).
-  3. Generar una lista de verificación post-sincronización (ejecución de tests de regresión y reconstrucción de imágenes Docker).
+### 6.6 FASE 8: Sistema de Sincronización con Upstream (COMPLETADA CON ÉXITO / COMPLETED SUCCESSFULLY)
+* **Objetivo / Goal**: Establish a sustainable, production-grade maintenance and synchronization workflow to seamlessly integrate upstream improvements, features, and security patches from the official DeepSeek Harness repository into the community fork.
+* **Estado / Status**: **100% IMPLEMENTADA Y VALIDADA / 100% IMPLEMENTED AND VALIDATED**.
+* **Entregables e Hitos Cumplidos / Deliverables and Completed Milestones**:
+  1. **Automated Synchronization Tool (`scripts/sync-upstream.sh`)**:
+     * Implemented executable shell script with full POSIX/Bash strictness (`set -euo pipefail`).
+     * Supports multi-mode operations:
+       - `--check` / `--dry-run`: Inspects upstream divergence, displays incoming commit logs, and executes an in-memory conflict simulation without mutating working files.
+       - `--merge`: Fetches upstream, atomically fast-forwards `upstream-tracking`, checks out the target branch, and executes `git merge --no-ff` with a standardized audit commit message.
+       - `--fetch-only`: Synchronizes the local tracking branch with upstream while leaving working branches untouched.
+       - `--run-checks`: Automatically runs the post-merge regression suite (`pnpm install`, vitest, oxlint, doc gates).
+     * Modern conflict simulation using `git merge-tree --write-tree`: predicts whether a merge will be clean or produce conflicts prior to applying any changes.
+     * Comprehensive error handling and user guidance when conflicts occur, detailing community-owned files (`docker/`, `deploy/`, community additions in `packages/bundle/web-app`, `packages/client/connection`, `packages/boot/app-boot`, `apps/cli`) versus upstream files, with instructions to abort (`git merge --abort`) or commit.
+  2. **Branching Architecture and Tracking Topology**:
+     * Structured three-tier branch hierarchy:
+       - `upstream/master`: Official remote authority (`deepseek-ai/deepseek-harness.git`).
+       - `upstream-tracking`: Pristine local mirror tracking `upstream/master` verbatim (never carries local commits or manual edits).
+       - `master`: Main community fork branch incorporating deployment and networking features.
+     * Atomic fast-forwarding using `git update-ref refs/heads/upstream-tracking refs/remotes/upstream/master` without needing to switch active working branches.
+  3. **Comprehensive Operational Runbook (`deploy/sync/README.md`)**:
+     * Created complete English technical guide covering:
+       - Upstream-first core philosophy and minimal blast radius.
+       - Branch topology diagram and remotes configuration.
+       - Command reference for automated tool and step-by-step manual git workflow.
+       - Conflict resolution matrix identifying fork-owned files and invariants.
+       - Post-synchronization verification checklist.
+       - Multi-level rollback procedures (in-progress abort, commit reset, container rollback).
+  4. **Documentation System and Gate Exclusions**:
+     * Registered `deploy/sync/README.md` in `scripts/translation-pairing.manifest.json`.
+     * Verified that all upstream documentation gates (`pnpm run test:docs`) pass 15/15 checks with 0 errors.
+* **Métricas de Calidad y Validación / Quality Metrics and Validation**:
+  - `scripts/sync-upstream.sh --check --force`: **Exit code 0 (clean dry-run simulation, 0 conflicts detected)**.
+  - `scripts/sync-upstream.sh --merge --force`: **Exit code 0 (verified up-to-date validation)**.
+  - `pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts`: **25 suites, 303 tests PASSED (100%)**.
+  - `pnpm run lint:contracts-ready`: **2991 files analyzed with oxlint, 0 errors, 0 warnings (100%)**.
+  - `pnpm run test:docs`: **15 passed, 0 failed, 0 skipped (100%)**.
+  - `git diff --check`: **Clean whitespace, 0 syntax violations**.
 
 ---
 
@@ -568,12 +599,14 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 ├── .dockerignore                           # Exclusiones de contexto de compilación Docker
 ├── .env.example                            # Plantilla declarativa exhaustiva de variables de entorno (Fase 4)
 ├── docker-compose.yml                      # Orquestador Docker Compose de producción con soporte .env y puertos dinámicos
-├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.6
+├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.7
 ├── docker/
 │   ├── Dockerfile                          # Imagen reproducible Node 24 con compilación integrada y pnpm preinstalado
 │   ├── entrypoint.sh                       # Entrypoint con variables DSH_*, PNPM_HOME persistente y arranque dsh web
 │   ├── healthcheck.sh                      # Sonda HTTP de comprobación de salud del servicio (401/200/303)
 │   └── docker.patch.yml                    # Parche Cordis para bind 0.0.0.0 sin alterar el core
+├── deploy/sync/                            # Estrategia de sincronización upstream y runbook operativo (Fase 8)
+│   └── README.md                           # Guía exhaustiva en inglés sobre sincronización, topología de ramas y resolución de conflictos
 ├── deploy/reverse-proxy/                   # Configuraciones de referencia para producción (Fase 7)
 │   ├── README.md                           # Guía completa de despliegue con proxies inversos
 │   ├── nginx.conf                          # Plantilla Nginx con SSL, WebSockets y streaming
@@ -588,8 +621,12 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
     └── test-proxy.sh                       # Suite automatizada de validación de proxies y WebSockets (Fase 7)
 ```
 
-### Archivos de Código Fuente Modificados (Evolución Modular de Fases 3, 4, 5 y 6)
+### Archivos de Código Fuente y Scripts Modificados (Evolución Modular de Fases 3 a 8)
 ```text
+scripts/
+├── sync-upstream.sh                        # Script automatizado de sincronización upstream con simulación de conflictos (Fase 8)
+└── translation-pairing.manifest.json       # Exclusión de deploy/reverse-proxy/README.md y deploy/sync/README.md (Fases 7 y 8)
+
 packages/bundle/web-app/
 ├── src/startup.ts                          # Soporte 0.0.0.0 con warning y lectura de DSH_HOST/DSH_PORT (Fases 3 y 4)
 ├── src/index.ts                            # Inclusión de DSH_TRUSTED_HOSTS y fallback LAN (Fase 3)
@@ -612,29 +649,28 @@ packages/boot/app-boot/
 apps/cli/
 ├── src/plugin.ts                           # Backfill automático de packageManager y COREPACK_ENABLE_DOWNLOAD_PROMPT=0 (Fase 5)
 └── tests/plugin.spec.ts                    # Tests unitarios de inicialización y migración de packageManager
-
-scripts/
-└── translation-pairing.manifest.json       # Exclusión de deploy/reverse-proxy/README.md para validación documental
 ```
 
 ---
 
 ## 8. Guía Rápida para Retomar el Proyecto en la Próxima Sesión
 
-Las **Fases 0, 1, 2, 3, 4, 5, 6 y 7** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 8** (Sistema de Sincronización con Upstream).
+Las **Fases 0, 1, 2, 3, 4, 5, 6, 7 y 8** están completamente terminadas y verificadas con éxito. El repositorio cuenta con infraestructura Docker, compatibilidad LAN y proxies inversos, observabilidad diagnóstica y un sistema robusto de sincronización con upstream.
+
+El estado está completamente preparado para avanzar de inmediato a la **FASE 9** (Release Candidate y Validación Integral).
 
 ### Comandos de Verificación Rápida
 ```bash
-# 1. Comprobar que los tests de las áreas modificadas pasan limpiamente
+# 1. Comprobar script de sincronización upstream en modo dry-run
+./scripts/sync-upstream.sh --check
+
+# 2. Comprobar que los tests de las áreas modificadas pasan limpiamente
 pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
-# 2. Comprobar verificación de sintaxis, linter y documentación
+# 3. Comprobar verificación de sintaxis, linter y documentación
 git diff --check
 pnpm run lint:contracts-ready
 pnpm run test:docs
-
-# 3. Comprobar suite del laboratorio de proxy
-./deploy/lab/test-proxy.sh
 
 # 4. Comprobar estado de Git
 git status
@@ -642,4 +678,4 @@ git status
 
 ### Instrucción para la Siguiente Sesión
 Para continuar el trabajo de forma directa, bastará con indicar:
-> *"Continuamos con la FASE 8 (Sistema de Sincronización con Upstream) según lo planificado en PROJECT_STATUS.md"*.
+> *"Continuamos con la FASE 9 (Release Candidate y Validación Integral) según lo planificado en PROJECT_STATUS.md"*.

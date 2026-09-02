@@ -8,6 +8,7 @@
     "docs/i18n/style-samples.md",
     "docs/i18n/terminology.md",
     "docs/i18n/translation-prompt.md",
-    "deploy/reverse-proxy/README.md"
+    "deploy/reverse-proxy/README.md",
+    "deploy/sync/README.md"
   ]
 }
