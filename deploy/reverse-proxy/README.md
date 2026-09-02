@@ -1,46 +1,46 @@
-# Guía de Despliegue con Reverse Proxy (Nginx, Caddy, Traefik, Cloudflare Tunnel)
+# Reverse Proxy Deployment Guide (Nginx, Caddy, Traefik, Cloudflare Tunnel)
 
-Esta guía contiene las configuraciones de referencia y las mejores prácticas para desplegar **DeepSeek Harness** en producción o en servidores domésticos detrás de un proxy inverso con terminación SSL/TLS y soporte de WebSockets.
+This guide provides reference configurations and best practices for deploying **DeepSeek Harness** in production or home server environments behind a reverse proxy with SSL/TLS termination and WebSocket support.
 
 ---
 
-## 1. Fundamentos de Red y Requisitos Previos
+## 1. Network Fundamentals and Prerequisites
 
-Para que DeepSeek Harness funcione correctamente detrás de cualquier proxy inverso, el contenedor debe configurarse con las siguientes variables de entorno:
+To ensure DeepSeek Harness operates reliably behind a reverse proxy, configure the container with the following environment variables:
 
-| Variable | Valor Recomendado | Propósito |
+| Variable | Recommended Value | Purpose |
 | :--- | :--- | :--- |
-| `DSH_HOST` | `0.0.0.0` | Permite que el proceso escuche en todas las interfaces de red del contenedor. |
-| `DSH_PORT` | `3080` | Puerto HTTP interno en el que escucha el arnés. |
-| `DSH_REVERSE_PROXY` | `true` | Habilita la lectura de `X-Forwarded-Host` y `X-Forwarded-Proto` en la capa de transporte y autenticación. |
-| `DSH_TRUSTED_HOSTS` | `midominio.com,harness.local` | Lista de nombres de dominio o IPs separados por comas que el proxy presentará al arnés. |
+| `DSH_HOST` | `0.0.0.0` | Binds the HTTP server to all network interfaces within the container. |
+| `DSH_PORT` | `3080` | Internal HTTP listening port. |
+| `DSH_REVERSE_PROXY` | `true` | Enables extraction of `X-Forwarded-Host` and `X-Forwarded-Proto` for trust fence evaluation and authority-bound authentication cookies. |
+| `DSH_TRUSTED_HOSTS` | `example.com,harness.local` | Comma-separated list of hostnames or IP addresses through which clients access the harness. |
 
-### Reglas Esenciales del Proxy Inverso
+### Essential Reverse Proxy Requirements
 
-1. **Preservar el Host Público (`X-Forwarded-Host`)**:
-   El proxy **no** debe reescribir el `Host` interno a `harness:3080` sin pasar `X-Forwarded-Host`. La cookie de sesión (`dsh-auth-<hash>`) y el trust fence se calculan a partir de la autoridad que el navegador del usuario ve en la barra de direcciones.
+1. **Preserve the Public Host (`X-Forwarded-Host`)**:
+   The reverse proxy must forward the browser-facing host via `X-Forwarded-Host` (or preserve `Host: $host`). Session cookies (`dsh-auth-<hash>`) and the trust fence validate against the exact authority present in the browser address bar.
 
-2. **Propagar el Protocolo Real (`X-Forwarded-Proto`)**:
-   Cuando el proxy termina SSL y se conecta al contenedor por HTTP plano, debe enviar `X-Forwarded-Proto: https`. De lo contrario, el sistema rechazará la petición con `403 Forbidden` al detectar un desajuste entre el protocolo del `Origin` (`https://`) y el del `Host` (`http://`).
+2. **Propagate the Real Protocol (`X-Forwarded-Proto`)**:
+   When terminating SSL at the proxy and connecting to the container over plain HTTP, the proxy must send `X-Forwarded-Proto: https`. Otherwise, the server rejects requests with `403 Forbidden` due to an origin mismatch between `https://` (the browser origin) and `http://` (the proxy scheme).
 
-3. **Soporte Completo de WebSockets (`/api/remote.mux`)**:
-   DeepSeek Harness utiliza WebSockets para streaming bidireccional y multiplexación de eventos del agente. El proxy debe reenviar las cabeceras `Upgrade` y `Connection`.
+3. **Full WebSocket Support (`/api/remote.mux`)**:
+   DeepSeek Harness relies on persistent WebSocket connections for real-time bi-directional agent streaming and event multiplexing. The proxy must pass the `Upgrade` and `Connection` headers.
 
-4. **Desactivar el Buffering de Respuestas**:
-   Los modelos de DeepSeek transmiten tokens carácter a carácter en tiempo real. Si el proxy tiene activado el buffer de salida (como ocurre por defecto en Nginx), el usuario experimentará pausas y las respuestas aparecerán en bloques grandes en lugar de fluir en tiempo real.
+4. **Disable Response Buffering**:
+   DeepSeek reasoning models stream tokens character by character. If proxy buffering is enabled (default in Nginx), the output is held in memory buffers and delivered in delayed bursts instead of fluid real-time streaming.
 
-5. **Timeouts Prolongados**:
-   Los turnos de razonamiento profundo (ej. DeepSeek-R1) pueden tardar más de 60 segundos antes de emitir el primer token. Los timeouts de lectura y envío del proxy (`proxy_read_timeout`) deben fijarse en valores amplios (ej. `86400s` o `3600s`).
+5. **Extended Timeouts**:
+   Deep reasoning steps (such as DeepSeek-R1 inference) can take upwards of 60 seconds before emitting the first token. Proxy read and send timeouts (`proxy_read_timeout`) should be configured to generous thresholds (e.g., `86400s` or `3600s`).
 
 ---
 
-## 2. Servidores Soportados y Ejemplos
+## 2. Supported Servers and Examples
 
-### Opción A: Nginx
+### Option A: Nginx
 
-Archivo de referencia: [`nginx.conf`](./nginx.conf)
+Reference file: [`nginx.conf`](./nginx.conf)
 
-Puntos clave en Nginx:
+Key configuration highlights in Nginx:
 ```nginx
 map $http_upgrade $connection_upgrade {
     default upgrade;
@@ -49,30 +49,30 @@ map $http_upgrade $connection_upgrade {
 
 server {
     listen 443 ssl http2;
-    server_name harness.midominio.com;
+    server_name harness.example.com;
 
-    client_max_body_size 300M; # Límite alineado con imágenes
+    client_max_body_size 300M; # Matches the 300 MiB attachment payload limit
 
     location / {
         proxy_pass http://harness:3080;
         proxy_http_version 1.1;
 
-        # Autoridad y cabeceras
+        # Authority and forwarding headers
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-        # WebSockets
+        # WebSocket support
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
 
-        # Streaming en vivo sin búfer
+        # Disable buffering for real-time LLM token streaming
         proxy_buffering off;
         proxy_cache off;
 
-        # Timeouts de streaming
+        # Extended timeouts for reasoning loops
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
     }
@@ -81,33 +81,33 @@ server {
 
 ---
 
-### Opción B: Caddy
+### Option B: Caddy
 
-Archivo de referencia: [`Caddyfile`](./Caddyfile)
+Reference file: [`Caddyfile`](./Caddyfile)
 
-Caddy gestiona certificados SSL automáticamente y soporta WebSockets de forma transparente:
+Caddy manages SSL certificates automatically and handles WebSockets natively:
 ```caddyfile
-harness.midominio.com {
+harness.example.com {
     reverse_proxy harness:3080 {
         header_up Host {host}
         header_up X-Forwarded-Host {host}
         header_up X-Forwarded-Proto https
-        flush_interval -1 # Desactiva buffer para streaming instantáneo
+        flush_interval -1 # Disables response buffering for instant streaming
     }
 }
 ```
 
 ---
 
-### Opción C: Traefik (Docker Compose)
+### Option C: Traefik (Docker Compose)
 
-Archivo de referencia: [`docker-compose.traefik.yml`](./docker-compose.traefik.yml)
+Reference file: [`docker-compose.traefik.yml`](./docker-compose.traefik.yml)
 
-Etiquetas para el contenedor de DeepSeek Harness:
+Docker service labels for DeepSeek Harness:
 ```yaml
 labels:
   - "traefik.enable=true"
-  - "traefik.http.routers.dsh.rule=Host(`harness.midominio.com`)"
+  - "traefik.http.routers.dsh.rule=Host(`harness.example.com`)"
   - "traefik.http.routers.dsh.entrypoints=websecure"
   - "traefik.http.routers.dsh.tls.certresolver=myresolver"
   - "traefik.http.services.dsh.loadbalancer.server.port=3080"
@@ -117,36 +117,36 @@ labels:
 
 ---
 
-### Opción D: Cloudflare Tunnel / Dokploy / Coolify
+### Option D: Cloudflare Tunnel / Dokploy / Coolify
 
-Si utilizas un túnel de Cloudflare o plataformas PaaS como Dokploy o Coolify:
-1. Apunta el servicio HTTP interno a `http://harness:3080`.
-2. En la configuración del túnel, asegúrate de activar el soporte de **WebSockets**.
-3. En las variables de entorno del contenedor DeepSeek Harness, define:
+When deploying behind Cloudflare Tunnels, Dokploy, or Coolify:
+1. Route the tunnel HTTP service to `http://harness:3080`.
+2. In the tunnel settings, enable **WebSockets**.
+3. Set the environment variables in the DeepSeek Harness service:
    ```env
    DSH_REVERSE_PROXY=true
-   DSH_TRUSTED_HOSTS=midominio-tunnels.com
+   DSH_TRUSTED_HOSTS=my-tunnel-domain.com
    ```
 
 ---
 
-## 3. Diagnóstico y Resolución de Problemas
+## 3. Diagnostics and Troubleshooting
 
-Si recibes errores de conexión al acceder a través de tu proxy, ejecuta:
+If you encounter connection or authentication rejections when accessing through your proxy, inspect the container logs:
 ```bash
 docker compose logs -f harness
 ```
 
-Gracias al sistema de diagnóstico estructurado implementado en la Fase 6, verás explicaciones exactas:
+The structured diagnostics introduced in Phase 6 output actionable explanations:
 
-* `API request rejected (403): untrusted host "midominio.com"`:
-  * **Causa**: El nombre de dominio no está incluido en `DSH_TRUSTED_HOSTS`.
-  * **Solución**: Añade `midominio.com` a `DSH_TRUSTED_HOSTS` en tu `.env` o `docker-compose.yml`.
+* `API request rejected (403): untrusted host "example.com"`:
+  * **Cause**: The incoming host header is not listed in `DSH_TRUSTED_HOSTS`.
+  * **Resolution**: Add `example.com` to `DSH_TRUSTED_HOSTS` in your `.env` or compose file.
 
-* `API request rejected (403): origin mismatch ("https://midominio.com" vs "http://midominio.com")`:
-  * **Causa**: El proxy no está enviando `X-Forwarded-Proto https`.
-  * **Solución**: Añade la cabecera `proxy_set_header X-Forwarded-Proto https;` en tu proxy.
+* `API request rejected (403): origin mismatch ("https://example.com" vs "http://example.com")`:
+  * **Cause**: The proxy terminates TLS but does not forward `X-Forwarded-Proto: https`.
+  * **Resolution**: Add `proxy_set_header X-Forwarded-Proto https;` (or equivalent) in your proxy.
 
 * `API request rejected (401): session cookie authority mismatch`:
-  * **Causa**: El usuario inició sesión a través de una URL o puerto distinto al configurado en el proxy.
-  * **Solución**: Reabre la URL de inicio del arnés a través del dominio del proxy para renovar la cookie.
+  * **Cause**: The browser cookie was minted for a different host/port than the one currently requested.
+  * **Resolution**: Access the initial web URL printed on startup using the proxy domain to issue a fresh cookie for that authority.

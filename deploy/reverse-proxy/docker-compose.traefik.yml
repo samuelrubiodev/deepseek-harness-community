@@ -1,10 +1,10 @@
 # ==============================================================================
-# DeepSeek Harness - Configuración de Referencia Traefik v3 para Producción
+# DeepSeek Harness - Production Reference Traefik v3 Compose Configuration
 # ==============================================================================
-# Proporciona:
-# 1. Reverse Proxy nativo para contenedores Docker mediante labels.
-# 2. Emisión automática de certificados SSL con Let's Encrypt (HTTP challenge / ACME).
-# 3. Soporte automático de WebSockets y Streaming HTTP/2.
+# Features:
+# 1. Native container discovery via Docker service labels.
+# 2. Automated SSL/TLS certificates through Let's Encrypt ACME.
+# 3. Transparent WebSocket and HTTP/2 multiplexing.
 # ==============================================================================
 
 services:
@@ -18,12 +18,12 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # Redirección automática HTTP -> HTTPS
+      # Automatic HTTP -> HTTPS redirection
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      # Configuración de Let's Encrypt
+      # Let's Encrypt configuration
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=admin@midominio.com"
+      - "--certificatesresolvers.myresolver.acme.email=admin@example.com"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
@@ -44,7 +44,7 @@ services:
       - WORKSPACE_DIR=/workspace
       - DSH_HOST=0.0.0.0
       - DSH_PORT=3080
-      - DSH_TRUSTED_HOSTS=harness.midominio.com
+      - DSH_TRUSTED_HOSTS=harness.example.com
       - DSH_REVERSE_PROXY=true
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
     volumes:
@@ -54,11 +54,11 @@ services:
       - dsh-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dsh.rule=Host(`harness.midominio.com`)"
+      - "traefik.http.routers.dsh.rule=Host(`harness.example.com`)"
       - "traefik.http.routers.dsh.entrypoints=websecure"
       - "traefik.http.routers.dsh.tls.certresolver=myresolver"
       - "traefik.http.services.dsh.loadbalancer.server.port=3080"
-      # Preservar cabeceras y desactivar buffers
+      # Preserve headers and protocol
       - "traefik.http.middlewares.dsh-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
       - "traefik.http.routers.dsh.middlewares=dsh-headers"
 

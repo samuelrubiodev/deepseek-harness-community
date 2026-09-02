@@ -1,27 +1,25 @@
 # ==============================================================================
-# DeepSeek Harness - Configuración de Referencia Caddy para Producción
+# DeepSeek Harness - Production Reference Caddy Configuration
 # ==============================================================================
-# Características:
-# 1. Emisión y renovación 100% automática de certificados TLS (Let's Encrypt / ZeroSSL).
-# 2. Soporte nativo y transparente de WebSockets y multiplexación de streams.
-# 3. HTTP/2 y HTTP/3 (QUIC) activos de fábrica.
-# 4. Propagación automática de X-Forwarded-For, X-Forwarded-Proto y X-Forwarded-Host.
+# Features:
+# 1. Automatic TLS certificate issuance and renewals (Let's Encrypt / ZeroSSL).
+# 2. Transparent WebSocket upgrade handling.
+# 3. HTTP/2 and HTTP/3 (QUIC) enabled by default.
+# 4. Automated forwarding of X-Forwarded-For, X-Forwarded-Proto, and X-Forwarded-Host.
 # ==============================================================================
 
-harness.midominio.com {
-    # Para certificados válidos de Let's Encrypt en producción:
-    # (Caddy gestiona automáticamente ACME en los puertos 80 y 443)
-
-    # Si se utiliza en red local o entorno doméstico sin dominio público:
+harness.example.com {
+    # In production with a public domain, Caddy handles Let's Encrypt automatically.
+    # For local LAN or self-signed testing without a public domain, uncomment:
     # tls internal
 
     reverse_proxy harness:3080 {
-        # Preserva el host original solicitado por el navegador
+        # Preserve original client authority
         header_up Host {host}
         header_up X-Forwarded-Host {host}
         header_up X-Forwarded-Proto https
 
-        # Desactiva el buffering de respuestas para streaming en vivo de tokens
+        # Disable response buffering for immediate token streaming
         flush_interval -1
     }
 }
