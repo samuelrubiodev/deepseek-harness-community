@@ -8,13 +8,20 @@ services:
     container_name: deepseek-harness
     restart: unless-stopped
     ports:
-      - "3080:3080"
+      - "${DSH_PORT:-3080}:${DSH_PORT:-3080}"
+    env_file:
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - DSH_HOME=/data
       - WORKSPACE_DIR=/workspace
-      - PORT=3080
+      - DSH_HOST=${DSH_HOST:-0.0.0.0}
+      - DSH_PORT=${DSH_PORT:-3080}
+      - DSH_TRUSTED_HOSTS=${DSH_TRUSTED_HOSTS:-}
+      - DSH_REVERSE_PROXY=${DSH_REVERSE_PROXY:-false}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-}
     volumes:
       - dsh-data:/data
       - dsh-workspace:/workspace

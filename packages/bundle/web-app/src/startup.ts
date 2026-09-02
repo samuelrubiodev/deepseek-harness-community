@@ -71,11 +71,13 @@ export function apply(ctx: Context): void {
   const program = webCommand()
   program.action(() => {
     const options = program.opts<WebOptions>()
-    if (options.host === '0.0.0.0') {
+    const host = options.host ?? process.env.DSH_HOST
+    if (host === '0.0.0.0') {
       console.warn('warning: --host 0.0.0.0 binds to all network interfaces; ensure access is secured')
     }
-    if (options.port !== undefined && !/^\d+$/.test(options.port)) {
-      program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
+    const rawPort = options.port ?? process.env.DSH_PORT ?? process.env.PORT
+    if (rawPort !== undefined && !/^\d+$/.test(rawPort)) {
+      program.error(`error: --port must be a number, got ${JSON.stringify(rawPort)}`)
     }
     const envTrusted = (process.env.DSH_TRUSTED_HOSTS ?? '')
       .split(',')
@@ -84,8 +86,8 @@ export function apply(ctx: Context): void {
     const trustedHosts = Array.from(new Set([...(options.trustedHost ?? []), ...envTrusted]))
     ctx.provide(WEB_STARTUP_SERVICE, {
       openBrowser: options.open,
-      ...options.host !== undefined && { host: options.host },
-      ...options.port !== undefined && { port: Number(options.port) },
+      ...host !== undefined && { host },
+      ...rawPort !== undefined && { port: Number(rawPort) },
       trustedHosts,
     } satisfies WebStartupValues)
   })

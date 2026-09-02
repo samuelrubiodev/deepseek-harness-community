@@ -1,6 +1,6 @@
 # DeepSeek Harness Community Fork: Documento Maestro de Arquitectura, Auditoría, Estado y Hoja de Ruta
 
-**Versión del documento**: 1.2 (Fases 0, 1, 2 y 3 Completadas con Éxito)
+**Versión del documento**: 1.3 (Fases 0, 1, 2, 3 y 4 Completadas con Éxito)
 **Fecha**: Septiembre 2026
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
@@ -386,17 +386,27 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 
 ---
 
-### 6.2 FASE 4: Configuración Declarativa por Variables de Entorno
-* **Objetivo**: Estandarizar la configuración del contenedor mediante variables de entorno limpias y documentadas.
-* **Tareas**:
-  1. Definir la lista de variables soportadas:
-     * `DSH_HOST` (por defecto `0.0.0.0` en Docker).
-     * `DSH_PORT` (por defecto `3080`).
-     * `DSH_TRUSTED_HOSTS` (lista separada por comas de dominios o IPs de confianza para el trust fence).
-     * `DSH_REVERSE_PROXY` (flag booleano para habilitar confianza en cabeceras `X-Forwarded-*`).
-     * `DEEPSEEK_API_KEY` y `DEEPSEEK_BASE_URL`.
-  2. Crear archivo `.env.example` exhaustivamente documentado.
-  3. Integrar la lectura de estas variables en el entrypoint o en el boot de la aplicación de forma compatible con la regla de `loadLayeredEnv`.
+### 6.2 FASE 4: Configuración Declarativa por Variables de Entorno (COMPLETADA CON ÉXITO)
+* **Objetivo**: Estandarizar la configuración del contenedor y del servidor mediante variables de entorno limpias, documentadas y compatibles con la arquitectura de capas de DeepSeek Harness.
+* **Estado**: **100% IMPLEMENTADA Y VALIDADA**.
+* **Cambios implementados**:
+  1. **Soporte nativo de `DSH_HOST` y `DSH_PORT` en el CLI**:
+     * Archivo: `packages/bundle/web-app/src/startup.ts`.
+     * Implementación: `web-startup` evalúa `options.host ?? process.env.DSH_HOST` y `options.port ?? process.env.DSH_PORT ?? process.env.PORT`. Esto permite que un despliegue Docker o servidor sin argumentos CLI aplique inmediatamente el host y puerto declarados, respetando en todo momento la precedencia de los flags de línea de comandos si se especifican.
+     * Pruebas añadidas en `packages/bundle/web-app/tests/startup.spec.ts` (10 tests pasando, cubriendo lectura de variables, sobreescritura por CLI y validación numérica).
+  2. **Plantilla exhaustiva de variables de entorno (`.env.example`)**:
+     * Archivo creado: `.env.example` en la raíz del repositorio.
+     * Contenido: Documentación completa de las 5 secciones de configuración (`DSH_HOST`, `DSH_PORT`, `DSH_TRUSTED_HOSTS`, `DSH_REVERSE_PROXY`, `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DSH_HOME`, `WORKSPACE_DIR`).
+     * Explicación arquitectónica clara de la regla de seguridad de `loadLayeredEnv` (evitando que variables bootstrap se intenten cargar desde `.env` en directorios de proyectos internos y promoviendo la inyección a nivel de proceso vía Docker).
+  3. **Actualización del Entrypoint de Docker**:
+     * Archivo: `docker/entrypoint.sh`.
+     * Implementación: Exporta las variables por defecto (`DSH_HOST=0.0.0.0`, `DSH_PORT=3080`), emite diagnósticos limpios en el log del contenedor al arrancar (`BIND=...`, `DSH_TRUSTED_HOSTS=...`, `DSH_REVERSE_PROXY=enabled`) e invoca `dsh web --no-open` directamente sin requerir de forma obligatoria un parche `docker.patch.yml`.
+  4. **Sincronización con Docker Compose**:
+     * Archivo: `docker-compose.yml`.
+     * Implementación: Vincula `env_file: .env` (opcional, no bloqueante si no existe), mapea el puerto dinámicamente con `${DSH_PORT:-3080}` y propaga todas las variables declarativas al contenedor.
+* **Métricas de Calidad y Validación**:
+  - `pnpm exec vitest run packages/bundle/web-app`: **4 suites, 27 tests PASADOS (100%)**.
+  - Compilación TypeScript de `packages/bundle/web-app`: **0 errores**.
 
 ---
 
@@ -482,7 +492,7 @@ Todos los cambios implementados hasta el momento se encuentran estrictamente ais
 
 ## 8. Guía Rápida para Retomar el Proyecto en la Próxima Sesión
 
-Las **Fases 0, 1, 2 y 3** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 4** (Configuración Declarativa por Variables de Entorno).
+Las **Fases 0, 1, 2, 3 y 4** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 5** (Plugins en Entornos Docker).
 
 ### Comandos de Verificación Rápida
 ```bash
@@ -499,4 +509,4 @@ git status
 
 ### Instrucción para la Siguiente Sesión
 Para continuar el trabajo de forma directa, bastará con indicar:
-> *"Continuamos con la FASE 4 (Configuración Declarativa por Variables de Entorno) según lo planificado en PROJECT_STATUS.md"*.
+> *"Continuamos con la FASE 5 (Plugins en Entornos Docker) según lo planificado en PROJECT_STATUS.md"*.

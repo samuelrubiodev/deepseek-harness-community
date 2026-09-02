@@ -159,4 +159,45 @@ describe('web command-line provider', () => {
       delete process.env.DSH_TRUSTED_HOSTS
     }
   })
+
+  it('reads DSH_HOST from environment when --host is omitted', async () => {
+    process.env.DSH_HOST = '0.0.0.0'
+    try {
+      const { values } = await bootProvider([])
+      expect(values?.host).toBe('0.0.0.0')
+    } finally {
+      delete process.env.DSH_HOST
+    }
+  })
+
+  it('allows --host flag to override DSH_HOST from environment', async () => {
+    process.env.DSH_HOST = '0.0.0.0'
+    try {
+      const { values } = await bootProvider(['--host', '127.0.0.1'])
+      expect(values?.host).toBe('127.0.0.1')
+    } finally {
+      delete process.env.DSH_HOST
+    }
+  })
+
+  it('reads DSH_PORT from environment when --port is omitted', async () => {
+    process.env.DSH_PORT = '8080'
+    try {
+      const { values } = await bootProvider([])
+      expect(values?.port).toBe(8080)
+    } finally {
+      delete process.env.DSH_PORT
+    }
+  })
+
+  it('rejects non-numeric DSH_PORT from environment', async () => {
+    process.env.DSH_PORT = 'invalid'
+    try {
+      const { values, observed } = await bootProvider([])
+      expect(observed.out).toContain('--port must be a number')
+      expect(values).toBeUndefined()
+    } finally {
+      delete process.env.DSH_PORT
+    }
+  })
 })
