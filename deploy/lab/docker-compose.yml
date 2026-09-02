@@ -1,34 +1,51 @@
 services:
   harness:
-    build:
-      context: ../..
-      dockerfile: deploy/lab/Dockerfile
-      network: host
+    image: deepseek-harness:latest
     container_name: dsh-lab-harness
+    restart: unless-stopped
     dns:
       - 8.8.8.8
       - 1.1.1.1
     ports:
       - "3080:3080"
-    command: ["web", "--patch", "/bind-all.patch.yml", "--no-open", "--port", "3080"]
     environment:
       - NODE_ENV=production
       - DSH_HOME=/data
+      - DSH_HOST=0.0.0.0
+      - DSH_PORT=3080
+      - DSH_TRUSTED_HOSTS=localhost,127.0.0.1,harness.lan,harness.local
+      - DSH_REVERSE_PROXY=true
     volumes:
       - dsh-lab-data:/data
-      - ./bind-all.patch.yml:/bind-all.patch.yml:ro
 
-  proxy:
+  proxy-nginx:
     image: nginx:alpine
-    container_name: dsh-lab-proxy
+    container_name: dsh-lab-nginx
+    restart: unless-stopped
     dns:
       - 8.8.8.8
       - 1.1.1.1
     ports:
       - "8080:8080"
       - "8081:8081"
+      - "8443:8443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - harness
+
+  proxy-caddy:
+    image: caddy:alpine
+    container_name: dsh-lab-caddy
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    ports:
+      - "8444:8444"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
       - harness
 

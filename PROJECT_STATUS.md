@@ -1,6 +1,6 @@
 # DeepSeek Harness Community Fork: Documento Maestro de Arquitectura, Auditoría, Estado y Hoja de Ruta
 
-**Versión del documento**: 1.5 (Fases 0, 1, 2, 3, 4, 5 y 6 Completadas con Éxito)
+**Versión del documento**: 1.6 (Fases 0, 1, 2, 3, 4, 5, 6 y 7 Completadas con Éxito)
 **Fecha**: Septiembre 2026
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
@@ -91,9 +91,9 @@ El desarrollo se ejecuta estrictamente por fases secuenciales. Cada fase finaliz
          │
 [FASE 6: Diagnóstico y Logging]        --> COMPLETADA (Logs estructurados 403/401 sin fugas)
          │
-[FASE 7: Reverse Proxy Avanzado]       --> SIGUIENTE PASO
+[FASE 7: Reverse Proxy Avanzado]       --> COMPLETADA (Nginx, Caddy, Traefik, WebSockets, SSL)
          │
-[FASE 8: Actualizaciones Upstream]     --> PENDIENTE
+[FASE 8: Actualizaciones Upstream]     --> SIGUIENTE PASO
          │
 [FASE 9: Release Candidate]            --> PENDIENTE
          │
@@ -493,12 +493,44 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 
 ---
 
-### 6.5 FASE 7: Escenarios Avanzados de Reverse Proxy
-* **Objetivo**: Validar el funcionamiento en despliegues reales con servidores web de terminación TLS.
-* **Tareas**:
-  1. Configurar en el laboratorio escenarios con Caddy y Nginx con SSL autofirmado / HTTPS.
-  2. Verificar que las conexiones persistentes de WebSockets (usadas para streaming de respuestas del agente) no sufran desconexiones ni timeouts prematuros.
-  3. Documentar configuraciones de referencia (`Caddyfile`, `nginx.conf`, labels de Traefik).
+### 6.5 FASE 7: Escenarios Avanzados de Reverse Proxy (COMPLETADA CON ÉXITO)
+* **Objetivo**: Validar el funcionamiento en despliegues reales con servidores web de terminación TLS, streaming bidireccional mediante WebSockets y empaquetar configuraciones de referencia.
+* **Estado**: **100% IMPLEMENTADA Y VALIDADA**.
+* **Hitos y Entregables Cumplidos**:
+  1. **Configuración y Validación en Laboratorio de Nginx con SSL y WebSockets**:
+     * Archivo: `deploy/lab/nginx.conf`.
+     * Se configuró el puerto `8443` con terminación TLS autofirmada (`/etc/nginx/ssl/cert.pem` con SAN para `localhost`, `harness.lan` y `127.0.0.1`).
+     * Se configuró el mapeo dinámico de cabeceras de actualización `map $http_upgrade $connection_upgrade`.
+     * Se verificó la propagación obligatoria de `proxy_set_header X-Forwarded-Proto https` y `proxy_set_header X-Forwarded-Host $host:$server_port`.
+     * Se ampliaron los timeouts (`proxy_read_timeout 86400s; proxy_send_timeout 86400s`) y se desactivó el buffer (`proxy_buffering off`) para streaming en vivo de tokens LLM.
+  2. **Configuración y Validación en Laboratorio de Caddy con TLS y HTTP/2**:
+     * Archivo: `deploy/lab/Caddyfile`.
+     * Se configuró el servicio `proxy-caddy` con imagen oficial `caddy:alpine` en el puerto `8444`.
+     * Se utilizó `tls internal` para emisión automática de certificados en memoria.
+     * Caddy negocia HTTP/2 con el navegador, termina TLS, reenvía WebSockets de forma transparente y propaga `X-Forwarded-Proto` y `X-Forwarded-Host`.
+  3. **Verificación de Conexiones Persistentes WebSockets (`/api/remote.mux`)**:
+     * Se verificó mediante handshake HTTP Upgrade que la ruta de streaming bidireccional `/api/remote.mux` responde `HTTP/1.1 101 Switching Protocols` tanto a través de Nginx como a través de Caddy.
+     * Se comprobó que peticiones de actualización no autenticadas son rechazadas de inmediato con `401 Unauthorized` por `rejectRemoteStreamUpgrade`.
+  4. **Suite de Automatización del Laboratorio (`deploy/lab/test-proxy.sh`)**:
+     * Suite de pruebas automatizada de 7 pasos que valida de extremo a extremo:
+       1. Acceso directo backend (401 esperado).
+       2. Reverse Proxy Nginx HTTP (303 intercambio de token y 404 en `/api/`).
+       3. Reverse Proxy Nginx HTTPS con SSL (303 intercambio de token y 404 en `/api/` con TLS).
+       4. Reverse Proxy Caddy HTTPS con TLS interno (303 intercambio de token y 404 en `/api/` con HTTP/2).
+       5. WebSocket Upgrade exitoso en Nginx SSL (`HTTP 101 Switching Protocols`).
+       6. WebSocket Upgrade exitoso en Caddy TLS (`HTTP 101 Switching Protocols`).
+       7. Rechazo de host no confiable (HTTP 403) y verificación del diagnóstico estructurado en logs.
+     * Resultado: **7/7 PRUEBAS PASADAS CON ÉXITO (100%)**.
+  5. **Configuraciones de Referencia para Producción (`deploy/reverse-proxy/`)**:
+     * `deploy/reverse-proxy/nginx.conf`: Configuración completa de Nginx para producción con redirección HTTP->HTTPS, buffers optimizados para streaming LLM, límite de subida de 300MB y WebSockets.
+     * `deploy/reverse-proxy/Caddyfile`: Configuración limpia para Caddy con Let's Encrypt o red local, `flush_interval -1` y proxy reverso.
+     * `deploy/reverse-proxy/docker-compose.traefik.yml`: Despliegue completo con Traefik v3, labels de autodescubrimiento, certificados ACME automáticos y middleware de cabeceras.
+     * `deploy/reverse-proxy/README.md`: Guía de arquitectura, explicación de variables (`DSH_REVERSE_PROXY`, `DSH_TRUSTED_HOSTS`), consideraciones de buffers y guía de resolución de problemas.
+* **Métricas de Calidad y Validación**:
+  - `deploy/lab/test-proxy.sh`: **7/7 tests PASADOS**.
+  - `pnpm exec vitest run packages/client/connection`: **13 suites, 140 tests PASADOS**.
+  - `pnpm run lint:contracts-ready`: **2991 ficheros analizados con oxlint, 0 errores, 0 advertencias**.
+  - `pnpm run test:docs`: **15 checks de documentación pasados con éxito**.
 
 ---
 
@@ -536,18 +568,24 @@ Esta sección define las tareas concretas para cada fase pendiente. **Al reanuda
 ├── .dockerignore                           # Exclusiones de contexto de compilación Docker
 ├── .env.example                            # Plantilla declarativa exhaustiva de variables de entorno (Fase 4)
 ├── docker-compose.yml                      # Orquestador Docker Compose de producción con soporte .env y puertos dinámicos
-├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.5
+├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.6
 ├── docker/
 │   ├── Dockerfile                          # Imagen reproducible Node 24 con compilación integrada y pnpm preinstalado
 │   ├── entrypoint.sh                       # Entrypoint con variables DSH_*, PNPM_HOME persistente y arranque dsh web
 │   ├── healthcheck.sh                      # Sonda HTTP de comprobación de salud del servicio (401/200/303)
 │   └── docker.patch.yml                    # Parche Cordis para bind 0.0.0.0 sin alterar el core
-└── deploy/lab/                             # Laboratorio de pruebas y reproducción (Fase 1)
+├── deploy/reverse-proxy/                   # Configuraciones de referencia para producción (Fase 7)
+│   ├── README.md                           # Guía completa de despliegue con proxies inversos
+│   ├── nginx.conf                          # Plantilla Nginx con SSL, WebSockets y streaming
+│   ├── Caddyfile                           # Plantilla Caddy con TLS automático y streaming
+│   └── docker-compose.traefik.yml          # Plantilla Compose con Traefik v3 y ACME Let's Encrypt
+└── deploy/lab/                             # Laboratorio de pruebas y reproducción (Fases 1 y 7)
     ├── Dockerfile                          # Imagen específica del laboratorio
-    ├── docker-compose.yml                  # Composición con Harness + Nginx Proxy
-    ├── nginx.conf                          # Configuración del proxy (puertos 8080 y 8081)
-    ├── bind-all.patch.yml                  # Parche de prueba para 0.0.0.0
-    └── test-repro.sh                       # Suite automatizada de reproducción de fallos
+    ├── docker-compose.yml                  # Composición con Harness + Nginx Proxy (8080/8443) + Caddy Proxy (8444)
+    ├── nginx.conf                          # Configuración de Nginx con SSL y WebSockets
+    ├── Caddyfile                           # Configuración de Caddy con TLS interna
+    ├── test-repro.sh                       # Suite automatizada de reproducción de fallos (Fase 1)
+    └── test-proxy.sh                       # Suite automatizada de validación de proxies y WebSockets (Fase 7)
 ```
 
 ### Archivos de Código Fuente Modificados (Evolución Modular de Fases 3, 4, 5 y 6)
@@ -574,27 +612,34 @@ packages/boot/app-boot/
 apps/cli/
 ├── src/plugin.ts                           # Backfill automático de packageManager y COREPACK_ENABLE_DOWNLOAD_PROMPT=0 (Fase 5)
 └── tests/plugin.spec.ts                    # Tests unitarios de inicialización y migración de packageManager
+
+scripts/
+└── translation-pairing.manifest.json       # Exclusión de deploy/reverse-proxy/README.md para validación documental
 ```
 
 ---
 
 ## 8. Guía Rápida para Retomar el Proyecto en la Próxima Sesión
 
-Las **Fases 0, 1, 2, 3, 4, 5 y 6** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 7** (Escenarios Avanzados de Reverse Proxy).
+Las **Fases 0, 1, 2, 3, 4, 5, 6 y 7** están completamente terminadas y verificadas con éxito. El estado está completamente preparado para avanzar de inmediato a la **FASE 8** (Sistema de Sincronización con Upstream).
 
 ### Comandos de Verificación Rápida
 ```bash
 # 1. Comprobar que los tests de las áreas modificadas pasan limpiamente
 pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
-# 2. Comprobar verificación de sintaxis y reglas de estilo
+# 2. Comprobar verificación de sintaxis, linter y documentación
 git diff --check
 pnpm run lint:contracts-ready
+pnpm run test:docs
 
-# 3. Comprobar estado de Git
+# 3. Comprobar suite del laboratorio de proxy
+./deploy/lab/test-proxy.sh
+
+# 4. Comprobar estado de Git
 git status
 ```
 
 ### Instrucción para la Siguiente Sesión
 Para continuar el trabajo de forma directa, bastará con indicar:
-> *"Continuamos con la FASE 7 (Escenarios Avanzados de Reverse Proxy) según lo planificado en PROJECT_STATUS.md"*.
+> *"Continuamos con la FASE 8 (Sistema de Sincronización con Upstream) según lo planificado en PROJECT_STATUS.md"*.

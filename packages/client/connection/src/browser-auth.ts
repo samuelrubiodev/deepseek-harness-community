@@ -366,8 +366,11 @@ export class BrowserAuth {
   }
 
   private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse, reason?: string): void {
-    if (this.logger !== undefined && reason !== undefined) {
-      this.logger.warn(`client-connection: index authorization failed (401): ${reason}`)
+    if (reason !== undefined) {
+      if (this.logger !== undefined) {
+        this.logger.warn(`client-connection: index authorization failed (401): ${reason}`)
+      }
+      console.warn(`[client-connection] index authorization failed (401): ${reason}`)
     }
     res.writeHead(401, {
       'cache-control': 'no-store',

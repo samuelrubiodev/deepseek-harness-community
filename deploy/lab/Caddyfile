@@ -1,0 +1,9 @@
+{
+    admin off
+}
+
+localhost:8444, harness.lan:8444, harness.local:8444 {
+    tls internal
+
+    reverse_proxy harness:3080
+}
