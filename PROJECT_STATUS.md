@@ -624,6 +624,10 @@ Esta sección documentaba las tareas de cada fase. **Las Fases 3 a 10 están com
      * Root `README.md` / `README.zh.md` upgraded with the pin-and-backup update flow and links to both new directories; directory layout updated in both languages.
   4. **Bug fix discovered by real-deployment testing**:
      * `docker/healthcheck.sh` read only `PORT`; deployments setting only `DSH_PORT` (root compose maps `${DSH_PORT}` and the entrypoint exports it) probed the wrong port and reported the container unhealthy. The probe now follows `DSH_PORT` → `PORT` → 3080, matching the entrypoint precedence exactly.
+  5. **Public image registry (GHCR)** — follow-up so NAS/server hosts no longer clone the repo or run the Dockerfile:
+     * `.github/workflows/docker-publish.yml`: multi-arch (amd64 + arm64 via QEMU) build & push to `ghcr.io/<owner>/deepseek-harness` on every push to `master` (`:latest` + `:sha-<sha>`) and on every `dsh-v*` tag; authenticates with the built-in `GITHUB_TOKEN` (`packages: write`), GHA layer caching, manual `workflow_dispatch` with platform override.
+     * The four `deploy/nas/` templates now reference the published image directly (anonymous pull for a public repo), and `deploy/nas/README.md` documents GHCR as the default delivery path with `docker save`/`load` as the offline fallback; the root README pair gained the registry note.
+     * `update-image.sh` rollback semantics with a registry image documented in the operations guide (local retag is undone by the next `docker compose pull`; re-pin to a release tag after rolling back).
 * **Quality Metrics and Validation**:
   - Backup → checksum → restore cycle executed end-to-end against a live isolated Compose project: `--replace` deleted post-backup witness files; a separate scratch-volume run proved merge restore keeps volume-only files while restoring archived ones: **PASSED**.
   - Tampered-archive guard: restore aborted with exit 1 on SHA-256 mismatch: **PASSED**.
@@ -642,6 +646,7 @@ Esta sección documentaba las tareas de cada fase. **Las Fases 3 a 10 están com
 ├── .dockerignore                           # Exclusiones de contexto de compilación Docker
 ├── .env.example                            # Plantilla declarativa exhaustiva de variables de entorno (Fase 4)
 ├── docker-compose.yml                      # Orquestador Docker Compose de producción con soporte .env y puertos dinámicos
+├── .github/workflows/docker-publish.yml    # Publicación multi-arquitectura (amd64/arm64) de la imagen en GHCR (Fase 10)
 ├── PROJECT_STATUS.md                       # Documento maestro actualizado a v1.9
 ├── docker/
 │   ├── Dockerfile                          # Imagen reproducible Node 24 con compilación integrada y pnpm preinstalado
@@ -656,11 +661,11 @@ Esta sección documentaba las tareas de cada fase. **Las Fases 3 a 10 están com
 │   ├── Caddyfile                           # Plantilla Caddy con TLS automático y streaming
 │   └── docker-compose.traefik.yml          # Plantilla Compose con Traefik v3 y ACME Let's Encrypt
 ├── deploy/nas/                             # Plantillas de despliegue NAS/servidor (Fase 10)
-│   ├── README.md                           # Guía en inglés: entrega de imagen, configuración previa, notas por host
+│   ├── README.md                           # Guía en inglés: imagen GHCR multi-arq, entrega offline, notas por host
 │   ├── docker-compose.synology.yml         # Synology DSM con bind mounts en /volume1 y Hyper Backup
 │   ├── docker-compose.unraid.yml           # Unraid con appdata en /mnt/user y compatibilidad CA Backup
 │   ├── docker-compose.truenas.yml          # TrueNAS SCALE con datasets ZFS como capa de snapshots
-│   └── docker-compose.server.yml           # Servidor Linux genérico con imagen preconstruida y .env
+│   └── docker-compose.server.yml           # Servidor Linux genérico con imagen GHCR preconstruida y .env
 ├── deploy/operations/                      # Operaciones de producción: backup, restore, rollback (Fase 10)
 │   ├── README.md                           # Guía operativa completa en inglés (targets, backup, update, rollback, fallos)
 │   ├── backup-data.sh                      # Backup tar.gz + SHA-256 del volumen /data, exclusión de pnpm store, --service
@@ -740,7 +745,7 @@ docker/healthcheck.sh                       # Puerto de sonda sigue DSH_PORT →
 pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
 # 3. Comprobar sintaxis shell, linter, documentación y whitespace
-bash -n deploy/operations/*.sh deploy/nas/*.yml 2>/dev/null || bash -n deploy/operations/*.sh
+bash -n deploy/operations/*.sh
 docker compose -f deploy/nas/docker-compose.synology.yml -p dsh-check config -q   # (repetir para cada plantilla)
 git diff --check
 pnpm run test:docs
@@ -752,6 +757,7 @@ pnpm run test:docs
 ```
 
 ### Trabajo Futuro Sugerido (fuera del alcance de las 10 fases)
-* Ejecutar `pnpm run test:coverage` en CI sobre el push del release (delegado en Fase 9).
-* Etiquetar el release (`git tag v0.1.2-alpha.5-community.1`) y publicar la imagen en un registry público o privado.
+* El gate `test:coverage` ya corre en CI sobre `pull_request` (ver nota de Fase 9); abrir PRs del fork para activarlo si se desea esa señal además de los pushes a master.
+* Cuando se disponga de una `DEEPSEEK_API_KEY`: `gh secret set DEEPSEEK_API_KEY_EXTERNAL` + re-activar el workflow E2E (`e2e.yml`, hoy deshabilitado en el fork al no haber clave).
+* Primera ejecución del workflow `Docker image (ghcr.io)`: valida la publicación multi-arquitectura real y que el pull anónimo funciona desde un NAS.
 * Validar manualmente una plantilla NAS en hardware real cuando esté disponible.

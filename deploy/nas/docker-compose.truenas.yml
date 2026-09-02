@@ -4,12 +4,10 @@
 # TrueNAS SCALE apps accept Docker Compose YAML through the custom-app form:
 #   1. Create a dataset pool/apps/dsh-data and pool/apps/dsh-workspace
 #      (Datasets > Add Dataset). ZFS snapshots of dsh-data are your backups.
-#   2. Build or import the image (SCALE may not have a pnpm toolchain for the
-#      fork build): from a workstation with the fork checked out:
-#        docker compose build
-#        docker save deepseek-harness:latest | ssh truenas \
-#          'sudo k3s ctr images import -'   # older middleware uses 'sudo docker load'
-#      On SCALE 24.10+ the runtime is Docker, so `sudo docker load` applies.
+#   2. The image is pulled at start from GHCR (public, no login):
+#        sudo docker pull ghcr.io/samuelrubiodev/deepseek-harness:latest
+#      On SCALE 24.10+ the runtime is Docker. (If you cannot reach ghcr.io,
+#      build or transfer the image as documented in deploy/nas/README.md.)
 #   3. Apps > Discover Applications > Install Manual App: paste the service
 #      below (the Apps UI may rename the top-level `services` keys; keep the
 #      environment and volume mappings), or run this file directly:
@@ -21,7 +19,7 @@
 
 services:
   harness:
-    image: deepseek-harness:latest
+    image: ghcr.io/samuelrubiodev/deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
     ports:

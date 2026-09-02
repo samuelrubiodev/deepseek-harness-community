@@ -20,21 +20,32 @@ back up the host directory with any file archiver — stop the container first
 
 ## Getting the image onto the NAS
 
-NAS appliances do not compile the TypeScript monorepo. Build once on any
-machine with Docker (your workstation, or CI) and ship the artifact:
+The fork publishes multi-architecture images (amd64 + arm64) to GHCR:
 
-```sh
-# On a workstation with the fork checked out:
-docker compose build
-
-# Pipe the image over SSH (no registry needed):
-docker save deepseek-harness:latest | ssh nas 'docker load'
-# Synology: prefix the remote command with sudo.
-# TrueNAS SCALE 24.10+: sudo docker load; older middleware used k3s/ctr.
+```text
+ghcr.io/samuelrubiodev/deepseek-harness:latest                  # current master
+ghcr.io/samuelrubiodev/deepseek-harness:dsh-v<version>          # pinned releases
 ```
 
-Alternatively push `deepseek-harness:latest` to a private registry and change
-`image:` in the template to its pull address.
+The templates above already point at the registry: `docker compose up -d`
+pulls on its own — no login, no build, no repository checkout. Prefer clicking
+on Synology/TrueNAS? Use the host's Registry/pull UI against the same address.
+
+For the `:latest` tag the image follows master and can change under you; if
+you want a stable install, pin the release tag (e.g.
+`dsh-v0.1.2-alpha.5-community.1`) in `image:` and upgrade deliberately.
+
+Offline hosts that cannot reach `ghcr.io`: build once on a workstation with
+the fork checked out and transfer the artifact —
+
+```sh
+docker compose build
+docker save deepseek-harness:latest | ssh nas 'sudo docker load'
+```
+
+(TrueNAS SCALE 24.10+ uses `sudo docker load`; older middleware used
+k3s/`ctr images import`. A private registry works the same way: change
+`image:` to its pull address.)
 
 ## Before the first start
 
@@ -69,8 +80,16 @@ Alternatively push `deepseek-harness:latest` to a private registry and change
 
 ## Upgrades and rollback
 
-Templates pin `image: deepseek-harness:latest`. Update by loading a new image
-with the same name and recreating the stack; pin a rollback point first with
-[`../operations/update-image.sh`](../operations/update-image.sh) (`save`), and
-undo a bad upgrade with `rollback`. Details in the
+Templates pin `image: ghcr.io/samuelrubiodev/deepseek-harness:latest`.
+Update by pulling and recreating:
+
+```sh
+docker compose pull
+./deploy/operations/update-image.sh save    # pin current as rollback-<timestamp>
+docker compose up -d                        # recreate on the new image
+```
+
+If the new image misbehaves, `./deploy/operations/update-image.sh rollback`
+moves `latest` back to the pinned image and recreates the service. To update a
+*pinned-tag* install instead, edit `image:` to the new tag. Details in the
 [operations guide](../operations/README.md).

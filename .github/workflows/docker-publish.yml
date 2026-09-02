@@ -1,0 +1,77 @@
+# Publish the fork's Docker image to GHCR (ghcr.io). NAS and server hosts pull
+# the image directly instead of cloning the repository and running the
+# multi-stage build themselves — see deploy/nas/README.md.
+#
+# Tags on ghcr.io:
+#   :latest     — every push to the default branch (master)
+#   :dsh-v*     — pushes of upstream-style version tags (community releases
+#                 carry a suffix, e.g. dsh-v0.1.2-alpha.5-community.1)
+#   :sha-<sha>  — the exact commit of every published build
+#
+# Multi-arch (amd64 + arm64) through QEMU emulation; the arm64 leg emulates
+# pnpm install + the TypeScript build, so it is the slow one. Layer caching is
+# the GitHub Actions cache, so a rebuild after a small source change recompiles
+# the build stage in minutes, not from scratch.
+name: Docker image (ghcr.io)
+
+on:
+  push:
+    branches: [master]
+    tags: ['dsh-v*']
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Comma-separated target platforms'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/deepseek-harness
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    # QEMU-emulated arm64 install + build needs generous headroom on the first
+    # uncached run.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,prefix=sha-
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DSH_CLIENT_COMMIT_HASH=${{ github.sha }}
+          cache-from: type=gha,scope=dsh-docker
+          cache-to: type=gha,mode=max,scope=dsh-docker

@@ -150,7 +150,8 @@ Two update sources exist; both follow the same order of operations:
 ./deploy/operations/update-image.sh save      # 1. pin current image as rollback-<timestamp>
 # 2. bring the new image in:
 #    a) from source: ./scripts/sync-upstream.sh --merge && docker compose build --pull
-#    b) prebuilt:    docker load < new-image.tar  (retagged deepseek-harness:latest)
+#    b) prebuilt registry: docker compose pull   (GHCR or your registry)
+#    c) transferred tar:   docker load < new-image.tar  (retagged deepseek-harness:latest)
 docker compose up -d                          # 3. recreate the service on the new image
 docker compose ps                             # 4. expect (healthy) within ~30 s
 docker compose logs --tail 50 harness         # 5. boot looks clean?
@@ -179,11 +180,15 @@ After an update that changed a format, `rollback` moves the image back but
 ./deploy/operations/update-image.sh rollback deepseek-harness:rollback-20260902-213500  # explicit
 ```
 
-`rollback` retags `deepseek-harness:latest` to the pinned image and recreates
-the service (`--force-recreate`), without touching volumes. On hosts where the
-Compose project cannot be resolved (plain-Docker DSM UI deployments), it still
-retags and prints the manual recreate steps; the Synology path is Container
-Tools → stop → delete (keep volumes) → re-create.
+`rollback` retags the service's image name (local `deepseek-harness:latest`,
+or the GHCR address used by the NAS templates) back to the pinned image and
+recreates the service (`--force-recreate`), without touching volumes. With a
+registry image, the retag is local-only: the next `docker compose pull` would
+bring the registry's `latest` back, so re-pin the service to a release tag
+(e.g. `image: …:dsh-v0.1.2-alpha.5-community.1`) after rolling back. On hosts
+where the Compose project cannot be resolved (plain-Docker DSM UI deployments),
+it still retags and prints the manual recreate steps; the Synology path is
+Container Tools → stop → delete (keep volumes) → re-create.
 
 Verify after rollback exactly as after an update: `(healthy)` in
 `docker compose ps`, a clean log tail, and a successful sign-in through the

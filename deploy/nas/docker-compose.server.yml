@@ -2,8 +2,8 @@
 # DeepSeek Harness — generic self-hosted Linux server (standalone Compose)
 # ==============================================================================
 # The repository root docker-compose.yml builds from source. This variant is
-# for servers that only run prebuilt images (CI-built, registry-pushed, or
-# docker save/load): no repository checkout, no build context.
+# for servers that just run the published image from GHCR (public, no login):
+# docker compose up -d pulls ghcr.io/samuelrubiodev/deepseek-harness:latest.
 #
 # Layout:
 #   /opt/deepseek-harness/
@@ -20,7 +20,7 @@
 
 services:
   harness:
-    image: deepseek-harness:latest
+    image: ghcr.io/samuelrubiodev/deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
     ports:
