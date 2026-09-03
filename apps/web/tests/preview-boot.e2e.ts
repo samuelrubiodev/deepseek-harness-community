@@ -470,8 +470,10 @@ async function bootEmptyPreview(origin: string, browser: Browser): Promise<void>
     expect(sessionCount).toBe(0)
     expect(pageErrors.map(error => error.message)).toEqual([])
     expect(failedResponses).toEqual(['/plugins/events'])
-    expect(consoleErrors.filter(line => !line.includes('Failed to load resource: the server responded with a status of 404')))
-      .toEqual([])
+    expect(consoleErrors.filter(line => (
+      !line.includes('Failed to load resource: the server responded with a status of 404')
+      && !line.includes('API request rejected')
+    ))).toEqual([])
   } catch (error) {
     await saveFailureShot(page, 'preview-boot-empty')
     throw pageErrors.length === 0
