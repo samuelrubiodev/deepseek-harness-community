@@ -4,7 +4,7 @@
 #
 # Tags on ghcr.io/samuelrubiodev/deepseek-harness-community:
 #   :stable     — every release tag (dsh-v*), points to latest stable release
-#   :dsh-v*     — exact release tag (e.g. dsh-v0.1.2-alpha.5-community.2)
+#   :dsh-v*     — exact release tag (e.g. dsh-v0.1.2-rc.1-community.1)
 #   :latest     — every push to the default branch (master)
 #   :master     — explicit master branch tag
 #   :sha-<sha>  — the exact commit of every published build
