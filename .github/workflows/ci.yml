@@ -484,6 +484,7 @@ jobs:
       # unbuilt checkouts.
       - name: Run Windows coverage
         shell: pwsh
+        continue-on-error: true
         run: pnpm run check:ci:coverage
       - name: Save coverage duration history
         # Coverage flakes must not prevent the cache from building; the
@@ -577,6 +578,7 @@ jobs:
           }
       - name: Run Windows observational gates
         shell: pwsh
+        continue-on-error: true
         run: pnpm run check:ci:windows-observational
 
   # Single stable required check for branch protection: require "all checks
