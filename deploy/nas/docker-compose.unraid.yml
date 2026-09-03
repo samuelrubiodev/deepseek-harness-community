@@ -17,7 +17,7 @@
 
 services:
   harness:
-    image: ghcr.io/samuelrubiodev/deepseek-harness:latest
+    image: ghcr.io/samuelrubiodev/deepseek-harness-community:latest
     container_name: deepseek-harness
     restart: unless-stopped
     # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.

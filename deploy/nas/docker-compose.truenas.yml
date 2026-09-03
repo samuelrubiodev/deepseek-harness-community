@@ -6,8 +6,9 @@
 #      (Datasets > Add Dataset). ZFS snapshots of dsh-data are your backups.
 #   2. The image is pulled at start from GHCR (public, no login):
 #        sudo docker pull ghcr.io/samuelrubiodev/deepseek-harness:latest
+#        sudo docker pull ghcr.io/samuelrubiodev/deepseek-harness-community:latest
 #      On SCALE 24.10+ the runtime is Docker. (If you cannot reach ghcr.io,
-#      build or transfer the image as documented in deploy/nas/README.md.)
+#      save the image on a workstation and load it via `docker load`.)
 #   3. Apps > Discover Applications > Install Manual App: paste the service
 #      below (the Apps UI may rename the top-level `services` keys; keep the
 #      environment and volume mappings), or run this file directly:
@@ -19,7 +20,7 @@
 
 services:
   harness:
-    image: ghcr.io/samuelrubiodev/deepseek-harness:latest
+    image: ghcr.io/samuelrubiodev/deepseek-harness-community:latest
     container_name: deepseek-harness
     restart: unless-stopped
     # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.

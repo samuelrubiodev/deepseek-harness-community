@@ -23,8 +23,9 @@ back up the host directory with any file archiver — stop the container first
 The fork publishes multi-architecture images (amd64 + arm64) to GHCR:
 
 ```text
-ghcr.io/samuelrubiodev/deepseek-harness:latest                  # current master
-ghcr.io/samuelrubiodev/deepseek-harness:dsh-v<version>          # pinned releases
+ghcr.io/samuelrubiodev/deepseek-harness-community:stable                  # latest stable release
+ghcr.io/samuelrubiodev/deepseek-harness-community:dsh-v<version>          # pinned releases
+ghcr.io/samuelrubiodev/deepseek-harness-community:latest                  # current master
 ```
 
 The templates above already point at the registry: `docker compose up -d`
@@ -80,7 +81,7 @@ k3s/`ctr images import`. A private registry works the same way: change
 
 ## Upgrades and rollback
 
-Templates pin `image: ghcr.io/samuelrubiodev/deepseek-harness:latest`.
+Templates pin `image: ghcr.io/samuelrubiodev/deepseek-harness-community:latest`.
 Update by pulling and recreating:
 
 ```sh

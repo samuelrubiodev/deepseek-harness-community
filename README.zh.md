@@ -47,7 +47,7 @@ docker compose up -d --build
 
 打开 `http://<服务器IP>:3080`，在引导对话框中填入你的 `DEEPSEEK_API_KEY`（也可先在 `.env` 中设置）。首次构建会编译 TypeScript monorepo，需要几分钟；之后的启动是即时的。
 
-不想自行构建？fork 在 `ghcr.io/samuelrubiodev/deepseek-harness` 发布多架构（amd64/arm64）镜像（`:latest` 与固定的 `dsh-v*` 标签）；[deploy/nas/](deploy/nas/README.md) 中的模板直接匿名拉取，无需登录、检出或构建——面向 NAS（Synology、Unraid、TrueNAS）与服务器。
+不想自行构建？fork 在 `ghcr.io/samuelrubiodev/deepseek-harness-community` 发布多架构（amd64/arm64）镜像（`:latest`、`:stable` 与固定的 `dsh-v*` 标签）；[deploy/nas/](deploy/nas/README.md) 中的模板直接匿名拉取，无需登录、检出或构建——面向 NAS（Synology、Unraid、TrueNAS）与服务器。
 
 两个卷在升级与容器重建后保留全部状态：
 

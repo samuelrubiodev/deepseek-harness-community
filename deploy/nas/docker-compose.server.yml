@@ -3,7 +3,7 @@
 # ==============================================================================
 # The repository root docker-compose.yml builds from source. This variant is
 # for servers that just run the published image from GHCR (public, no login):
-# docker compose up -d pulls ghcr.io/samuelrubiodev/deepseek-harness:latest.
+# docker compose up -d pulls ghcr.io/samuelrubiodev/deepseek-harness-community:latest.
 #
 # Layout:
 #   /opt/deepseek-harness/
@@ -21,7 +21,7 @@
 
 services:
   harness:
-    image: ghcr.io/samuelrubiodev/deepseek-harness:latest
+    image: ghcr.io/samuelrubiodev/deepseek-harness-community:latest
     container_name: deepseek-harness
     restart: unless-stopped
     # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.
