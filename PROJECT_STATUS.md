@@ -265,7 +265,10 @@ En la Fase 2 se construyó la base Docker oficial sin alterar ningún archivo de
 * Enlace global de la CLI: `ln -sf /app/apps/cli/lib/bin.js /usr/local/bin/dsh`.
 * Declaración de volúmenes: `VOLUME ["/data", "/workspace"]`.
 * Puerto expuesto: `EXPOSE 3080`.
-* Instrucción de salud integrada:
+* Configuración de directorio seguro para git: `git config --system --add safe.directory '*'`.
+* Creación de `/data`, `/workspace` y `/home/node/.cache` asignados al usuario sin privilegios `node:node` (UID:GID 1000:1000) con permisos `775`.
+* Ejecución segura no-root: Directiva `USER node` por defecto (principio de mínimo privilegio).
+* Instrucción de salud integrada ejecutada como usuario `node`:
   ```dockerfile
   HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
       CMD /app/docker/healthcheck.sh
@@ -274,10 +277,13 @@ En la Fase 2 se construyó la base Docker oficial sin alterar ningún archivo de
 * Punto de entrada: `ENTRYPOINT ["/app/docker/entrypoint.sh"]`.
 
 ### 5.3 `docker/entrypoint.sh`
-* Crea `/data` y `/workspace` con los permisos adecuados en el arranque.
-* Imprime logs informativos claros:
+* Asegura `/data` y `/workspace` y comprueba permisos de escritura para el usuario activo:
+  - Falla de forma temprana con mensaje claro y accionable si `/data` no tiene permisos de escritura (evitando errores silenciosos en montajes de host).
+  - Emite una advertencia de seguridad si se detecta ejecución explícita como `root` (UID 0).
+* Imprime logs informativos claros identificando el usuario y UID/GID:
   ```text
   [dsh-docker] Starting DeepSeek Harness...
+  [dsh-docker] USER=node (1000:1000)
   [dsh-docker] DSH_HOME=/data
   [dsh-docker] WORKSPACE=/workspace
   ```
@@ -610,7 +616,7 @@ Esta sección documentaba las tareas de cada fase. **Las Fases 3 a 10 están com
 * **Deliverables and Completed Milestones**:
   1. **NAS and server deployment templates (`deploy/nas/`)**:
      * `docker-compose.synology.yml` — Synology DSM (Container Tools), bind mounts under `/volume1/docker/dsh/` so Hyper Backup sees the state; sudo-aware image import notes.
-     * `docker-compose.unraid.yml` — Unraid via Docker Compose Manager, `/mnt/user/appdata/` layout, CA Backup compatibility; documents the root-ownership reality of the image (no PUID/PGID).
+     * `docker-compose.unraid.yml` — Unraid via Docker Compose Manager, `/mnt/user/appdata/` layout, CA Backup compatibility; runs securely as unprivileged `node` user (UID 1000).
      * `docker-compose.truenas.yml` — TrueNAS SCALE custom app or plain compose, dedicated datasets with ZFS snapshots as the platform backup layer.
      * `docker-compose.server.yml` — generic Linux server with no build toolchain: prebuilt image, `/srv/dsh/` bind mounts, `.env`-driven port mapping.
      * `deploy/nas/README.md` — guide: `docker save`/`load` image delivery, pre-start trust configuration, host-specific port/proxy/ownership notes.

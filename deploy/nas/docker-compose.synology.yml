@@ -13,7 +13,8 @@
 # Bind mounts (not named volumes) keep /data visible in File Station, so the
 # Synology Hyper Backup / snapshots tooling can archive it directly; use
 # deploy/operations/backup-data.sh for app-consistent tarballs.
-# The container runs as root inside; host directories will be root-owned.
+# The container runs securely as non-root (user 'node', UID:GID 1000:1000).
+# Ensure host directories are owned or writable by UID 1000.
 # ==============================================================================
 
 services:
@@ -21,6 +22,7 @@ services:
     image: ghcr.io/samuelrubiodev/deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
+    # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.
     ports:
       - "3080:3080"
     environment:

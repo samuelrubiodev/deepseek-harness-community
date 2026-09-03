@@ -14,6 +14,7 @@
 #
 # Run:
 #   mkdir -p /opt/deepseek-harness /srv/dsh/data /srv/dsh/workspace
+#   chown -R 1000:1000 /srv/dsh/data /srv/dsh/workspace
 #   cp .env.example /opt/deepseek-harness/.env && edit it
 #   cd /opt/deepseek-harness && docker compose up -d
 # ==============================================================================
@@ -23,6 +24,7 @@ services:
     image: ghcr.io/samuelrubiodev/deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
+    # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.
     ports:
       - "${DSH_PORT:-3080}:${DSH_PORT:-3080}"
     env_file:

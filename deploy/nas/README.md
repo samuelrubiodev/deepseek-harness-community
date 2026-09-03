@@ -69,10 +69,10 @@ k3s/`ctr images import`. A private registry works the same way: change
   change `DSH_PORT` instead, update both sides of the mapping to match it —
   the app binds `DSH_PORT` inside the container and the healthcheck follows
   it, but the host side of the mapping never adapts on its own.
-- **Unraid**: the image runs as root and has no PUID/PGID handling, so files
-  the agent writes into `/workspace` appear root-owned on the array. If
-  Windows/SMB users must edit them, chown periodically, share over NFS, or
-  place `/workspace` on cache with an ownership-mapping mount.
+- **Unraid**: the image runs securely as the unprivileged `node` user (UID/GID 1000),
+  preventing root file creation on the array. Ensure host directories under
+  `/mnt/user/appdata/deepseek-harness/` are owned or writable by UID 1000 so the
+  container and agent can read and write files without requiring root.
 - **TrueNAS SCALE**: prefer a dedicated dataset for `/data` and enable ZFS
   snapshots on it — the operations backup script stays a convenience, not the
   only recovery path. In the Apps UI form, paste the compose YAML from `image:`

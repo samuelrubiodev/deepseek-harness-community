@@ -10,6 +10,8 @@
 # Bind mounts under /mnt/user/appdata keep state inside the array, so the
 # "CA Backup / Restore Appdata" plugin archives it too; use
 # deploy/operations/backup-data.sh for app-consistent tarballs of the volumes.
+# The container runs securely as non-root (user 'node', UID:GID 1000:1000).
+# Ensure host appdata directories are owned or writable by UID 1000.
 # Adjust the pool/share names (below: default "user" share) to your layout.
 # ==============================================================================
 
@@ -18,6 +20,7 @@ services:
     image: ghcr.io/samuelrubiodev/deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
+    # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.
     ports:
       - "3080:3080"
     environment:

@@ -22,6 +22,7 @@ services:
     image: ghcr.io/samuelrubiodev/deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
+    # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.
     ports:
       - "3080:3080"
     environment:
