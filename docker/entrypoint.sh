@@ -19,6 +19,9 @@ fi
 export DSH_HOST="${DSH_HOST:-0.0.0.0}"
 export PORT="${DSH_PORT:-${PORT:-3080}}"
 export DSH_PORT="${PORT}"
+export WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace}"
+export HOME="${WORKSPACE_DIR}"
+cd "${WORKSPACE_DIR}"
 
 # Configure persistent pnpm paths inside DSH_HOME (/data)
 export PNPM_HOME="${DSH_HOME:-/data}/.pnpm"

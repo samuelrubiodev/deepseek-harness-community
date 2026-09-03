@@ -33,6 +33,7 @@ RUN mkdir -p /data /workspace /home/node/.cache \
 ENV NODE_ENV=production
 ENV DSH_HOME=/data
 ENV WORKSPACE_DIR=/workspace
+ENV HOME=/workspace
 ENV PORT=3080
 
 VOLUME ["/data", "/workspace"]
