@@ -8,6 +8,7 @@ import type {
   ConnectionIndexResponse,
   ConnectionTrustRequest,
 } from './rpc.ts'
+import { firstHeaderSegment, header } from './api-request-trust.ts'
 
 const AUTH_RECORD_KEY = credentialKey('client-connection', 'browser-session')
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
@@ -55,23 +56,6 @@ function processLaunchToken(owner: object): string {
   const created = encodeBase64Url(randomBytes(SECRET_BYTES))
   PROCESS_LAUNCH_TOKENS.set(owner, created)
   return created
-}
-
-function header(
-  headers: ConnectionTrustRequest['headers'],
-  name: string,
-): string | undefined {
-  if (headers instanceof Headers) return headers.get(name) ?? undefined
-  const value = headers[name]
-  return typeof value === 'string' ? value : undefined
-}
-
-function firstHeaderSegment(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  const at = value.indexOf(',')
-  const segment = at === -1 ? value : value.slice(0, at)
-  const trimmed = segment.trim()
-  return trimmed.length > 0 ? trimmed : undefined
 }
 
 /** Canonical request authority used as the cookie name and signed audience. */
