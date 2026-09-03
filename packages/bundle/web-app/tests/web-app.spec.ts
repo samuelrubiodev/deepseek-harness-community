@@ -163,6 +163,36 @@ describe('web-app runtime glue', () => {
     await ctx.fiber.dispose()
   })
 
+  it('formats LAN candidate from trustedHosts when binding loopback', async () => {
+    stageDist()
+    const ctx = new Context()
+    const { server } = fakeHttpServer('127.0.0.1')
+    ctx.provide('webServer', server)
+    provideConnection(ctx)
+    provideLoader(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    internals.openBrowser = vi.fn()
+    apply(ctx, new Config({ openBrowser: false, printUrl: true, surfaceContext: false, trustedHosts: ['https://custom.lan'] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: https://custom.lan/?token=test-token)')
+    await ctx.fiber.dispose()
+  })
+
+  it('formats LAN candidate with explicit port from trustedHosts when binding loopback', async () => {
+    stageDist()
+    const ctx = new Context()
+    const { server } = fakeHttpServer('127.0.0.1')
+    ctx.provide('webServer', server)
+    provideConnection(ctx)
+    provideLoader(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    internals.openBrowser = vi.fn()
+    apply(ctx, new Config({ openBrowser: false, printUrl: true, surfaceContext: false, trustedHosts: ['plain.lan:9090'] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://plain.lan:9090/?token=test-token)')
+    await ctx.fiber.dispose()
+  })
+
   it('publishes no readiness side effect when printing and browser opening are disabled', async () => {
     stageDist()
     const ctx = new Context()

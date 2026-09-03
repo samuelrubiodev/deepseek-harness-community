@@ -17,11 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out trusted policy
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
       - name: Validate pull request
+        if: github.repository == 'deepseek-ai/deepseek-harness'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node .github/issue-management/policy.mjs pr
+      - name: Skip for forks
+        if: github.repository != 'deepseek-ai/deepseek-harness'
+        run: echo "Skipping upstream issue policy in community fork."

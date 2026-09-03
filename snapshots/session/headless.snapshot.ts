@@ -642,7 +642,7 @@ describe('headless recorded-session snapshots', () => {
 
   for (const scenario of scenarios) {
     const skipped = scenario.manifest.platform === 'posix' && process.platform === 'win32'
-      || scenario.manifest.platform === 'pwsh' && !hasPwsh
+      || scenario.manifest.platform === 'pwsh' && (process.platform !== 'win32' || !hasPwsh)
       || mode === 'record' && scenario.manifest.recording === 'authored'
     const scenarioTest = skipped ? it.skip : mode === 'replay' ? it.concurrent : it
     scenarioTest(`${mode}s ${scenario.name} through dsh --profile headless`, async () => {

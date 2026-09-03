@@ -16,13 +16,26 @@
 import { isLoopbackHostname } from './loopback-hostname.ts'
 import type { ConnectionTrustRequest } from './rpc.ts'
 
-function header(headers: ConnectionTrustRequest['headers'], name: string): string | undefined {
+/**
+ * Read a header from a Headers instance or a plain object dictionary.
+ *
+ * @param headers - Container with request headers.
+ * @param name - Header name to look up.
+ * @returns Header value or undefined if not present.
+ */
+export function header(headers: ConnectionTrustRequest['headers'], name: string): string | undefined {
   if (headers instanceof Headers) return headers.get(name) ?? undefined
   const value = headers[name]
   return typeof value === 'string' ? value : undefined
 }
 
-function firstHeaderSegment(value: string | undefined): string | undefined {
+/**
+ * Extract the first comma-separated segment of a header value.
+ *
+ * @param value - Raw header string or undefined.
+ * @returns Trimmed first segment or undefined when empty.
+ */
+export function firstHeaderSegment(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   const at = value.indexOf(',')
   const segment = at === -1 ? value : value.slice(0, at)

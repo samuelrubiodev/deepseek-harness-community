@@ -1,7 +1,7 @@
 /** Behavior of the /api browser-trust fence (rebinding + cross-site defense). */
 
 import { describe, expect, it, vi } from 'vitest'
-import { assertTrustedAuthority, evaluateApiRequestTrust, isTrustedApiRequest } from '../src/api-request-trust.ts'
+import { assertTrustedAuthority, evaluateApiRequestTrust, firstHeaderSegment, header, isTrustedApiRequest } from '../src/api-request-trust.ts'
 
 function request(headers: Record<string, string | undefined>): { headers: Record<string, string | undefined> } {
   return { headers }
@@ -204,5 +204,23 @@ describe('isTrustedApiRequest', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       'client-connection: API request rejected (403): untrusted host "untrusted.lan" (no trustedHosts configured)',
     )
+  })
+})
+
+describe('header and firstHeaderSegment', () => {
+  it('reads headers from Headers instance and plain objects', () => {
+    const headersInstance = new Headers({ host: '127.0.0.1', 'x-forwarded-host': 'proxy.example' })
+    expect(header(headersInstance, 'host')).toBe('127.0.0.1')
+    expect(header(headersInstance, 'missing')).toBeUndefined()
+    expect(header({ host: '127.0.0.1' }, 'host')).toBe('127.0.0.1')
+    expect(header({}, 'missing')).toBeUndefined()
+  })
+
+  it('parses first comma-separated header segment and handles blank/undefined', () => {
+    expect(firstHeaderSegment(undefined)).toBeUndefined()
+    expect(firstHeaderSegment('')).toBeUndefined()
+    expect(firstHeaderSegment('   ')).toBeUndefined()
+    expect(firstHeaderSegment('first.example, second.example')).toBe('first.example')
+    expect(firstHeaderSegment('single.example')).toBe('single.example')
   })
 })

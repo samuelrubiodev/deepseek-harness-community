@@ -7,6 +7,7 @@ services:
     image: deepseek-harness:latest
     container_name: deepseek-harness
     restart: unless-stopped
+    # Runs as unprivileged 'node' user (UID:GID 1000:1000) by default.
     ports:
       - "${DSH_PORT:-3080}:${DSH_PORT:-3080}"
     env_file:

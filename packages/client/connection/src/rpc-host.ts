@@ -98,13 +98,11 @@ export class HostConnectionService extends Service implements HostConnectionHand
     const trust = evaluateApiRequestTrust(request, this.trustedHosts, { reverseProxy: this.reverseProxy })
     if (!trust.trusted) {
       this.ctx.logger.warn(`client-connection: API request rejected (403): ${trust.reason}`)
-      console.warn(`[client-connection] API request rejected (403): ${trust.reason}`)
       return 403
     }
     const auth = this.browserAuth.authenticate(request)
     if (!auth.authenticated) {
       this.ctx.logger.warn(`client-connection: API request rejected (401): ${auth.reason}`)
-      console.warn(`[client-connection] API request rejected (401): ${auth.reason}`)
       return 401
     }
     return undefined

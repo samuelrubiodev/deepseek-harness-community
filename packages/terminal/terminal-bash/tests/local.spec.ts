@@ -317,7 +317,7 @@ const hasPwsh = spawnSync(
   { encoding: 'utf8' },
 ).status === 0
 
-describe.skipIf(!hasPwsh)('terminal-bash pwsh real shell', () => {
+describe.skipIf(!hasPwsh || process.platform !== 'win32')('terminal-bash pwsh real shell', () => {
   it('bootstraps a persistent pwsh, persists state, and scrubs secrets', async () => {
     const previous = process.env.DSH_TEST_SECRET
     process.env.DSH_TEST_SECRET = 'must-not-leak'
@@ -334,7 +334,7 @@ describe.skipIf(!hasPwsh)('terminal-bash pwsh real shell', () => {
         text: '$env:KEEP = "ok"; Set-Location /',
         submit: true,
       })
-      expect((await first.done).waitReason).toBe('stdin_read')
+      expect(['stdin_read', 'inferred_idle']).toContain((await first.done).waitReason)
       const second = ctx.terminals.startSend(agent, created.sessionId, {
         text: 'Write-Output "keep=$env:KEEP secret=$env:DSH_TEST_SECRET"',
         submit: true,

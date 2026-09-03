@@ -7,20 +7,23 @@
 #   3. Edit DSH_TRUSTED_HOSTS to your LAN IP or domain BEFORE first start.
 #   4. First start pulls the public image from GHCR:
 #        sudo docker pull ghcr.io/samuelrubiodev/deepseek-harness:latest
-#      (or Container Tools > Registry > add it manually). No login needed for
-#      this public image; the compose `up` fetches it on its own.
+#        sudo docker pull ghcr.io/samuelrubiodev/deepseek-harness-community:latest
+#        sudo docker tag ghcr.io/samuelrubiodev/deepseek-harness-community:latest synology-local/dsh:latest
+#      and set `image: synology-local/dsh:latest` below.
 #
 # Bind mounts (not named volumes) keep /data visible in File Station, so the
 # Synology Hyper Backup / snapshots tooling can archive it directly; use
 # deploy/operations/backup-data.sh for app-consistent tarballs.
-# The container runs as root inside; host directories will be root-owned.
+# The container runs securely as non-root (user 'node', UID:GID 1000:1000).
+# Ensure host directories are owned or writable by UID 1000.
 # ==============================================================================
 
 services:
   harness:
-    image: ghcr.io/samuelrubiodev/deepseek-harness:latest
+    image: ghcr.io/samuelrubiodev/deepseek-harness-community:latest
     container_name: deepseek-harness
     restart: unless-stopped
+    # Runs securely as unprivileged 'node' user (UID:GID 1000:1000) by default.
     ports:
       - "3080:3080"
     environment:

@@ -15,6 +15,14 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile && pnpm run build
 
+# Configure safe git directory and non-root node permissions
+RUN git config --system --add safe.directory '*' \
+    && mkdir -p /data /workspace /home/node/.cache \
+    && chown -R node:node /app /data /workspace /home/node \
+    && chmod 775 /data /workspace
+
+USER node
+
 ENV DSH_HOME=/data
 ENV PORT=3080
 
