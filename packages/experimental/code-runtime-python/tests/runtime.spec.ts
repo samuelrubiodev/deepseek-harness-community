@@ -5192,12 +5192,12 @@ describe('PythonCodeRuntime — hostile peer', () => {
     // with several workers sharing a box. This budget bounds the run without letting a
     // loaded runner's scheduling latency read as a `timeout` — what this test asserts
     // is the O(depth) memory shape, not a speed claim.
-    const { runtime } = await setup({ maxValueBytes: 20 * 1024 * 1024, addressSpaceMb: 384, maxWallMs: 60_000 })
+    const { runtime } = await setup({ maxValueBytes: 20 * 1024 * 1024, addressSpaceMb: 384, maxWallMs: 120_000 })
     const result = await runtime.run({ program: 'return [0] * 6_000_000', bindings: [] })
     expect(result.error).toBeUndefined()
     expect(Array.isArray(result.value)).toBe(true)
     expect((result.value as number[]).length).toBe(6_000_000)
-  }, 90_000)
+  }, 180_000)
 
   it('validates wide binding arguments in O(depth), not O(width)', async () => {
     // The completion-value walks are budgeted; this one is not. `dispatch` runs
@@ -5213,7 +5213,7 @@ describe('PythonCodeRuntime — hostile peer', () => {
     //
     // The binding echoes its argument's length back, so the assertion proves the
     // call actually round-tripped rather than merely avoiding a crash.
-    const { runtime } = await setup({ addressSpaceMb: 384, maxWallMs: 60_000 })
+    const { runtime } = await setup({ addressSpaceMb: 384, maxWallMs: 120_000 })
     const result = await runtime.run({
       program: 'return await tools.width([0] * 6_000_000)',
       bindings: [{
@@ -5223,7 +5223,7 @@ describe('PythonCodeRuntime — hostile peer', () => {
     })
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(6_000_000)
-  }, 90_000)
+  }, 180_000)
 
   it('decodes a multi-megabyte binding reply without regex backtracking state', async () => {
     // The child parses every host reply with `_decode_json_plain`. Its scalar
