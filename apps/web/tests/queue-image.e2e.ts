@@ -136,6 +136,7 @@ describe('web e2e: queued image submission', () => {
     ).toBe(0)
     const chatImage = page.locator('[class*="userRow"] img')
     await chatImage.first().waitFor({ timeout: 15_000 })
+    await page.mouse.move(0, 0)
     const deliveredSnapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(DELIVERED_EXPECTED, deliveredSnapshot, MODE)
 
