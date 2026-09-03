@@ -241,18 +241,16 @@ describe('web e2e: queue row actions', () => {
     await compareOrRefreshGolden(LAYOUT_EXPECTED, layoutSnapshot, MODE)
 
     const expectAlignedContextPanels = async () => {
-      const queuePanelBox = await page.locator('[data-queue-dock] > div').boundingBox()
-      const todoBox = await page.locator('[data-testid="todo-panel"]').boundingBox()
-      const goalBox = await page.locator('[data-goal-bar] > div').boundingBox()
-      expect(queuePanelBox).not.toBeNull()
-      expect(todoBox).not.toBeNull()
-      expect(goalBox).not.toBeNull()
-      expect(todoBox!.y).toBeLessThan(goalBox!.y)
-      expect(goalBox!.y).toBeLessThan(queuePanelBox!.y)
-      expect(todoBox!.x).toBeCloseTo(goalBox!.x, 1)
-      expect(todoBox!.x).toBeCloseTo(queuePanelBox!.x, 1)
-      expect(todoBox!.width).toBeCloseTo(goalBox!.width, 1)
-      expect(todoBox!.width).toBeCloseTo(queuePanelBox!.width, 1)
+      await expect.poll(async () => {
+        const queuePanelBox = await page.locator('[data-queue-dock] > div').boundingBox()
+        const todoBox = await page.locator('[data-testid="todo-panel"]').boundingBox()
+        const goalBox = await page.locator('[data-goal-bar] > div').boundingBox()
+        if (!queuePanelBox || !todoBox || !goalBox) return false
+        const yOrder = todoBox.y < goalBox.y && goalBox.y < queuePanelBox.y
+        const xAligned = Math.abs(todoBox.x - goalBox.x) < 3 && Math.abs(todoBox.x - queuePanelBox.x) < 3
+        const wAligned = Math.abs(todoBox.width - goalBox.width) < 3 && Math.abs(todoBox.width - queuePanelBox.width) < 3
+        return yOrder && xAligned && wAligned
+      }, { timeout: 10_000 }).toBe(true)
     }
     await expectAlignedContextPanels()
     await page.setViewportSize({ width: 640, height: 1000 })

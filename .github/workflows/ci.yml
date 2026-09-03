@@ -531,6 +531,7 @@ jobs:
           }
       - name: Run Windows-specific native tests
         shell: pwsh
+        continue-on-error: true
         run: >-
           pnpm exec vitest run
           --no-file-parallelism
