@@ -407,6 +407,14 @@ describe('BrowserAuth', () => {
     expect(warnings).toContain('client-connection: index authorization failed (401): pathname "/other" is not root (/)')
     expect(warnings.join('\n')).not.toContain(launchToken)
 
+    // 4b. Missing request authority with token
+    warnings.length = 0
+    const res4b = response()
+    auth.authorizeIndex({ url: `/?token=${launchToken}`, method: 'GET', headers: {} }, res4b.value)
+    expect(res4b.state.status).toBe(401)
+    expect(warnings).toContain('client-connection: index authorization failed (401): missing or unparseable request authority (Host)')
+    expect(warnings.join('\n')).not.toContain(launchToken)
+
     // 5. Missing cookie on index request
     warnings.length = 0
     const res5 = response()

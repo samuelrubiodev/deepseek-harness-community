@@ -110,6 +110,13 @@ describe('connection client apply', () => {
     expect(handle.isLoopback).toBe(true)
   })
 
+  it('handles invalid trusted host entries gracefully', async () => {
+    ;(globalThis as Win).location = { hostname: 'remote.example', search: '' }
+    ;(globalThis as Win).__DSH_TRUSTED_HOSTS__ = ['[invalid:ipv6']
+    const handle = await mount()
+    expect(handle.isLoopback).toBe(false)
+  })
+
   it('requires one generation source and ignores a stale source disposer', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
     const handle = await mount()
