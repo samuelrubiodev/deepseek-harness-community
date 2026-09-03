@@ -88,22 +88,28 @@ jobs:
           cp apps/web/dist/preview.html apps/web/dist/index.html
 
       - name: Upload to Cloudflare Pages
-        if: secrets.CLOUDFLARE_API_TOKEN != ''
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "Cloudflare Pages secrets not configured; skipping upload."
+            exit 0
+          fi
           npx --yes wrangler@4 pages deploy apps/web/dist \
             --project-name "$CF_PROJECT" \
             --branch "pr-${{ github.event.pull_request.number }}" \
             --commit-dirty=true
 
       - name: Verify the protected deployment serves the image
-        if: secrets.CLOUDFLARE_API_TOKEN != ''
         env:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
+          if [ -z "${CF_ACCESS_CLIENT_ID:-}" ]; then
+            echo "Cloudflare Access secrets not configured; skipping verification."
+            exit 0
+          fi
           url="https://pr-${{ github.event.pull_request.number }}.${CF_PROJECT}.pages.dev"
           image="$url/preview/vfs-image.tar.gz"
           code=000
@@ -135,11 +141,14 @@ jobs:
           echo "image served as $(wc -c < image.bin) gzip bytes"
 
       - name: Comment the preview URL
-        if: secrets.CLOUDFLARE_API_TOKEN != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            exit 0
+          fi
           marker='<!-- dsh-preview-url -->'
           existing=$(gh pr view "$PR" --json comments \
             --jq "[.comments[] | select(.body | contains(\"$marker\")) | .url] | first // empty")
@@ -151,7 +160,3 @@ jobs:
             "$marker" \
             "[Preview for #$PR](https://pr-$PR.${CF_PROJECT}.pages.dev) (requires Cloudflare Access sign-in)" \
             | gh pr comment "$PR" --body-file -
-
-      - name: Skip Cloudflare deployment
-        if: secrets.CLOUDFLARE_API_TOKEN == ''
-        run: echo "Cloudflare Pages secrets not configured in this repository; skipping preview upload."

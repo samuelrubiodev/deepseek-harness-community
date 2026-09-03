@@ -425,7 +425,6 @@ jobs:
 
   windows-coverage:
     if: github.event_name == 'pull_request'
-    continue-on-error: true
     runs-on: windows-latest
     name: windows node 24 / coverage
     timeout-minutes: 120
