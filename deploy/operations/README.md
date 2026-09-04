@@ -185,7 +185,7 @@ or the GHCR address used by the NAS templates) back to the pinned image and
 recreates the service (`--force-recreate`), without touching volumes. With a
 registry image, the retag is local-only: the next `docker compose pull` would
 bring the registry's `latest` back, so re-pin the service to a release tag
-(e.g. `image: …:dsh-v0.1.2-rc.1-community.1`) after rolling back. On hosts
+(e.g. `image: …:dsh-v0.1.3-alpha.1-community.1`) after rolling back. On hosts
 where the Compose project cannot be resolved (plain-Docker DSM UI deployments),
 it still retags and prints the manual recreate steps; the Synology path is
 Container Tools → stop → delete (keep volumes) → re-create.

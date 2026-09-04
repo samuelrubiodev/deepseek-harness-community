@@ -5,7 +5,7 @@
 **Repositorio local**: `/home/samuel/Documents/deepseek-harness` (Rama `master`)
 **Remoto de Upstream**: `https://github.com/deepseek-ai/deepseek-harness.git`
 **Remoto del Fork**: `https://github.com/samuelrubiodev/deepseek-harness-community`
-**Versión de Upstream**: `0.1.2-rc.1`
+**Versión de Upstream**: `0.1.3-alpha.1`
 **Entorno de desarrollo**: Ubuntu sobre WSL2 en entorno portátil con Docker Engine 29.7.2 y Docker Compose v5.5.0
 
 ---

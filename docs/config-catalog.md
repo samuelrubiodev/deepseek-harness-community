@@ -203,21 +203,17 @@ Source: [`packages/api/gateway/src/index.ts:119`](../packages/api/gateway/src/in
 
 ## `@deepseek-ai/dsh-api-session-controller`
 
-Requires: `agentDefaultModel` · `agents` · `attachments` · `llm` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `workspaceRegistry`
+Requires: `agentDefaultModel` · `agents` · `attachments` · `fileUploads` · `llm` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `workspaceRegistry`
 
 ```ts config-catalog
 /** Session Controller deployment policy. */
 export interface Config {
-  /** Maximum stat-reported event count eligible for one full cold projection observation; `0` disables the event-count gate. */
-  readonly coldBlankProbeMaxEvents?: number
-  /** Maximum stat-reported artifact byte size eligible for one full cold projection observation; `0` disables the byte-size gate. */
-  readonly coldBlankProbeMaxBytes?: number
   /** Override platform desktop-opener detection. */
   readonly nativeOpen?: boolean
 }
 ```
 
-Source: [`packages/api/session-controller/src/index.ts:72`](../packages/api/session-controller/src/index.ts)
+Source: [`packages/api/session-controller/src/index.ts:69`](../packages/api/session-controller/src/index.ts)
 
 <a id="deepseek-aidsh-api-settings-controller"></a>
 
@@ -266,7 +262,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/attachment/attachment-local/src/index.ts:55`](../packages/attachment/attachment-local/src/index.ts)
+Source: [`packages/attachment/attachment-local/src/index.ts:61`](../packages/attachment/attachment-local/src/index.ts)
 
 <a id="deepseek-aidsh-bash-local"></a>
 
@@ -355,7 +351,7 @@ export interface ConnectionConfig {
 }
 ```
 
-Source: [`packages/client/connection/src/index.ts:84`](../packages/client/connection/src/index.ts)
+Source: [`packages/client/connection/src/index.ts:85`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 
@@ -528,7 +524,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/e2b/e2b/src/index.ts:43`](../packages/e2b/e2b/src/index.ts)
+Source: [`packages/e2b/e2b/src/index.ts:45`](../packages/e2b/e2b/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-agent-team"></a>
 
@@ -1372,7 +1368,7 @@ export interface ReplayModelConfig {
 
 Depends on: [`ModelModality`](../packages/llm/llm/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts)
 
-Source: [`packages/test-support/llm-replay/src/index.ts:924`](../packages/test-support/llm-replay/src/index.ts)
+Source: [`packages/test-support/llm-replay/src/index.ts:1294`](../packages/test-support/llm-replay/src/index.ts)
 
 <a id="deepseek-aidsh-llm-retry"></a>
 
@@ -1843,7 +1839,7 @@ Source: [`packages/session-query/session-log-export/src/index.ts:45`](../package
 ## `@deepseek-ai/dsh-session-persistence-jsonl`
 
 ```ts config-catalog
-/** Plugin config: where the JSONL backend keeps its session logs, and the packed-row write switch. */
+/** Plugin config for the JSONL backend's root and physical encoding. */
 export interface Config {
   /**
    * Root directory for all session files. Required (no default): a default of
@@ -1853,14 +1849,6 @@ export interface Config {
    * readable directory; an absent root is created on first materialization.
    */
   root: string
-  /**
-   * Write runs of consecutive `assistant/chunk` delta events as packed
-   * `text-chunks`/`reasoning-chunks`/`tool-call-chunks` rows (lossless,
-   * ~60% smaller logs measured on a real session). Defaults to true; false
-   * keeps one `SessionEvent` per line for diagnostics. Reading packed rows is
-   * unconditional: a log's layout never depends on this switch.
-   */
-  packChunks?: boolean
   /** Physical encoding; defaults to checksummed Zstandard frames. */
   compression?: JsonlCompression
 }
@@ -1869,7 +1857,7 @@ export interface Config {
 export type JsonlCompression = 'zstd' | 'none'
 ```
 
-Source: [`packages/session/session-persistence-jsonl/src/index.ts:73`](../packages/session/session-persistence-jsonl/src/index.ts)
+Source: [`packages/session/session-persistence-jsonl/src/index.ts:86`](../packages/session/session-persistence-jsonl/src/index.ts)
 
 <a id="deepseek-aidsh-session-projection-cache"></a>
 
@@ -1893,7 +1881,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/session/session-projection-cache/src/index.ts:55`](../packages/session/session-projection-cache/src/index.ts)
+Source: [`packages/session/session-projection-cache/src/index.ts:63`](../packages/session/session-projection-cache/src/index.ts)
 
 <a id="deepseek-aidsh-session-query-sqlite"></a>
 
@@ -3352,6 +3340,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-api-remotes` — requires `typertGateway` ([`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts))
 - `@deepseek-ai/dsh-api-workspace-controller` — requires `typert` · `workspaceRegistry` ([`packages/api/workspace-controller/src/index.ts`](../packages/api/workspace-controller/src/index.ts))
 - `@deepseek-ai/dsh-authorization` — requires `credentials` ([`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts))
+- `@deepseek-ai/dsh-client-file-upload` — requires `agents` · `attachments` · `commands` · `connection` ([`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts))
 - `@deepseek-ai/dsh-client-locale` ([`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts))
 - `@deepseek-ai/dsh-client-modules` — requires `webServer` · `loader` ([`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-agent-preset` ([`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts))
@@ -3469,6 +3458,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-experimental-webworker-runtime` ([`packages/experimental/webworker-runtime/src/index.ts`](../packages/experimental/webworker-runtime/src/index.ts))
 - `@deepseek-ai/dsh-home-paths` ([`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts))
 - `@deepseek-ai/dsh-hook-protocol` ([`packages/hooks/hook-protocol/src/index.ts`](../packages/hooks/hook-protocol/src/index.ts))
+- `@deepseek-ai/dsh-http-proxy` ([`packages/util/http-proxy/src/index.ts`](../packages/util/http-proxy/src/index.ts))
 - `@deepseek-ai/dsh-launch-environment` ([`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts))
 - `@deepseek-ai/dsh-llm-mock-server` ([`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts))
 - `@deepseek-ai/dsh-loader-smoke` ([`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts))
@@ -3479,6 +3469,10 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-sdk-client` ([`packages/sdk/client/src/index.ts`](../packages/sdk/client/src/index.ts))
 - `@deepseek-ai/dsh-sdk-minimal` ([`packages/bundle/sdk-minimal/src/index.ts`](../packages/bundle/sdk-minimal/src/index.ts))
 - `@deepseek-ai/dsh-sdk-protocol` ([`packages/sdk/protocol/src/index.ts`](../packages/sdk/protocol/src/index.ts))
+- `@deepseek-ai/dsh-session-format` ([`packages/session/session-format/src/index.ts`](../packages/session/session-format/src/index.ts))
+- `@deepseek-ai/dsh-session-format-catalog` ([`packages/session/session-format-catalog/src/index.ts`](../packages/session/session-format-catalog/src/index.ts))
+- `@deepseek-ai/dsh-session-format-v0-to-v1` ([`packages/session/session-format-v0-to-v1/src/index.ts`](../packages/session/session-format-v0-to-v1/src/index.ts))
+- `@deepseek-ai/dsh-session-format-v1-to-v2` ([`packages/session/session-format-v1-to-v2/src/index.ts`](../packages/session/session-format-v1-to-v2/src/index.ts))
 - `@deepseek-ai/dsh-session-snapshot` ([`packages/test-support/session-snapshot/src/index.ts`](../packages/test-support/session-snapshot/src/index.ts))
 - `@deepseek-ai/dsh-session-telemetry` ([`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts))
 - `@deepseek-ai/dsh-session-title-llm` ([`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts))

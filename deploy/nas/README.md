@@ -34,7 +34,7 @@ on Synology/TrueNAS? Use the host's Registry/pull UI against the same address.
 
 For the `:latest` tag the image follows master and can change under you; if
 you want a stable install, pin the release tag (e.g.
-`dsh-v0.1.2-rc.1-community.1`) in `image:` and upgrade deliberately.
+`dsh-v0.1.3-alpha.1-community.1`) in `image:` and upgrade deliberately.
 
 Offline hosts that cannot reach `ghcr.io`: build once on a workstation with
 the fork checked out and transfer the artifact —
