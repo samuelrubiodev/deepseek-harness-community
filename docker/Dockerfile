@@ -2,9 +2,9 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 
-# Install runtime dependencies: git, ca-certificates, curl
+# Install runtime dependencies and build tools for native addons (fs-ext node-gyp)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ca-certificates curl \
+    git ca-certificates curl python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g pnpm@11.7.0 && corepack enable && corepack prepare pnpm@11.7.0 --activate
