@@ -22,7 +22,8 @@ export const ZH_BROWSER_LOCALE = 'zh-CN'
  * This keeps role locators and goldens deterministic while leaving the Host
  * settings document free to override the provisional browser-derived locale;
  * scenarios asserting the Chinese surface advertise
- * {@link ZH_BROWSER_LOCALE} instead.
+ * {@link ZH_BROWSER_LOCALE} instead. The context uses Asia/Shanghai to preserve
+ * the recorded Web user-source timezone independently of the host timezone.
  * @param browser - Playwright browser owning the page.
  * @param height - Viewport height; width is fixed to the lane baseline.
  * @returns the initialized page.

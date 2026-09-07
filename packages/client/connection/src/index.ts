@@ -4,12 +4,13 @@ import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-credentials'
 // Activates the webServer Context merge used below.
-import type { IndexInjection, WebRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth, type BrowserAuthMode } from './browser-auth.ts'
 import { HostConnectionService } from './rpc-host.ts'
+import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
 export type {
   ConnectionFetchMethod,
@@ -81,8 +82,10 @@ function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): voi
 /** Services required before providing Connection. */
 export const inject = ['webServer', 'credentials']
 
-/** Plugin config: the deployment's non-loopback serving authorities. */
+/** Browser authentication, request limits, and connection recovery configuration. */
 export interface ConnectionConfig {
+  /** Browser recovery timing, injected into each served page. */
+  recovery?: ConnectionRecoveryConfig
   /**
    * Authorities this deployment serves beyond loopback: exact `host:port`, or
    * port-less `host` matching any port. The /api trust fence refuses any
@@ -114,6 +117,7 @@ export interface ConnectionConfig {
 }
 
 export const Config: z<ConnectionConfig> = z.object({
+  recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
@@ -132,6 +136,7 @@ export const Config: z<ConnectionConfig> = z.object({
  * @param config - resolved plugin config (schema defaults applied).
  */
 export async function apply(ctx: Context, config?: ConnectionConfig): Promise<void> {
+  const recovery = resolveConnectionConfig(config?.recovery)
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
@@ -163,6 +168,9 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     ctx.logger.warn(notice)
     console.warn(notice)
   }
+  ctx.on('webserver/index-inject', (table) => {
+    table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
+  })
   const fetchHandler = connection.createSharedFetchHandler(API_PATH)
   const route: WebRoute = {
     kind: 'prefix',
@@ -178,15 +186,15 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     },
   }
   ctx.effect(() => ctx.webServer.register(route), 'client-connection: /api route')
-  ctx.effect(() => {
-    return ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
+  if (trustedHosts.length > 0) {
+    ctx.on('webserver/index-inject', (table) => {
       table.push({
         kind: 'global',
         name: '__DSH_TRUSTED_HOSTS__',
         value: trustedHosts,
       })
     })
-  }, 'client-connection: trusted hosts index injection')
+  }
   ctx.inject(['attachments'], (attachmentCtx) => {
     assertImageBodyCapacity(attachmentCtx, maxRequestBodyBytes)
   })
