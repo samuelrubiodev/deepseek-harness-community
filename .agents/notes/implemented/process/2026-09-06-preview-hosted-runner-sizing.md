@@ -10,7 +10,7 @@ PR previews build the full workspace and browser-worker VFS image. A lower per-m
 
 ## Decision
 
-The [preview workflow](../../../../.github/workflows/build-preview-cloudflare.yml) uses standard GitHub-hosted `ubuntu-24.04`. Build, cache, deployment, protected-image verification, and comment semantics remain unchanged. The [sizing reference](../../../../.github/preview-sizing/README.md) owns comparison requirements. The separate CI [failover runbook](2026-07-26-ci-failover-runbook.md) retains its independent runner-switch decision; previews do not use those switches.
+The [preview workflow](../../../../.github/workflows/build-preview-cloudflare.yml) uses standard GitHub-hosted `ubuntu-24.04`. Build, cache, deployment, protected-image verification, and comment semantics remain unchanged. The [sizing reference](../../../../.github/preview-sizing/README.md) owns comparison requirements. The separate CI [failover runbook](../../archived/process/2026-07-26-ci-failover-runbook.md) retains its independent runner-switch decision; previews do not use those switches.
 
 ### Measurements
 

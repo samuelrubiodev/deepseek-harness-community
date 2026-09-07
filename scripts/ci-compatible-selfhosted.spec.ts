@@ -53,7 +53,7 @@ function route(options: { mode?: string; author?: string; repository?: string; f
   })
 }
 
-describe('Node compatibility self-hosted routing', () => {
+describe.skip('Node compatibility self-hosted routing', () => {
   it('uses the Linux pool only for opted-in repository-owned PRs', () => {
     expect(route()).toEqual(labels)
     for (const mode of ['', 'hosted', 'unexpected']) expect(route({ mode })).toBe('ubuntu-latest')

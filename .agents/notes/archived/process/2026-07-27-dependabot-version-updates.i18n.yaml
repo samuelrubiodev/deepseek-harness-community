@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/archived/process/2026-07-27-dependabot-version-updates.md
-2026-07-27-dependabot-version-updates.md: 8b8cb08bf3c2e1dbee5ddcd944ffc67afaa44280
-2026-07-27-dependabot-version-updates.zh.md: 6a30cd7ae418dc00cdbbb67a068006d595d6f5ad
+2026-07-27-dependabot-version-updates.md: a07604d415aa9ddadde4fe65a1f2f466a1b33793
+2026-07-27-dependabot-version-updates.zh.md: 55f6a412779f44bfec2141ad00747dea5b4dcf0e

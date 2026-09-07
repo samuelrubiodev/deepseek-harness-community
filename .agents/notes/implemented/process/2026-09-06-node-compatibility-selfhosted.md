@@ -14,7 +14,7 @@ The Node 22.19, 24.9, and 26 compatibility jobs consume hosted Linux minutes eve
 
 The temporary tool cache trades repeated Node downloads for isolation across concurrent runners and Node versions. A setup-node-only [ESM preload](../../../../scripts/ci-compatible-toolcache.mjs) assigns the cache inside the action process: the Actions runner overwrites reserved environment variables after reading step configuration. An executed path check rejects installations outside runner temp; compatibility processes do not inherit the preload. pnpm keeps its existing private setup destination and persistent content-addressed store. Compile caches and node-gyp headers use runner temp before the first pnpm invocation. No global Node symlink or system package changes are introduced. Hosted jobs retain their tool and package caching; self-hosted jobs do not restore or upload hosted package caches. The runner owns temporary-directory cleanup between jobs, and the shared image supplies native npm packages’ compiler and Python prerequisites.
 
-The [failover runbook](2026-07-26-ci-failover-runbook.md) remains the owner of repository trust and pool switching. The [serial reference decision](2026-07-21-serial-cross-platform-ci-reference.md) remains the owner of master scheduling. Neither decision is superseded beyond the compatibility jobs' runner selection; both remain active.
+The [failover runbook](../../archived/process/2026-07-26-ci-failover-runbook.md) remains the owner of repository trust and pool switching. The [serial reference decision](2026-07-21-serial-cross-platform-ci-reference.md) remains the owner of master scheduling. Neither decision is superseded beyond the compatibility jobs' runner selection; both remain active.
 
 ## Alternatives considered
 

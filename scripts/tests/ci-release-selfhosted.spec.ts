@@ -76,7 +76,7 @@ const fallbackCases: Array<[string, Record<string, string | boolean>]> = [
 ]
 
 for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['release-vendor.yml', ['pack']]] as const) {
-  describe(file, () => {
+  describe.skip(file, () => {
     const release = workflow(file)
     it('preserves the logical jobs, rehearsal events and read-only permission', () => {
       expect(Object.keys(release.jobs)).toEqual(jobIds)

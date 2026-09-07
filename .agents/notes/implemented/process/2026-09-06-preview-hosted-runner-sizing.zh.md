@@ -10,7 +10,7 @@ PR（Pull Request）预览构建完整工作区及浏览器 worker VFS 镜像。
 
 ## 决策
 
-[预览工作流](../../../../.github/workflows/build-preview-cloudflare.yml) 使用标准 GitHub 托管 `ubuntu-24.04`。构建、缓存、部署、受保护镜像验证及评论语义保持不变。[规格参考](../../../../.github/preview-sizing/README.zh.md) 负责比较要求。独立的 CI [故障切换手册](2026-07-26-ci-failover-runbook.zh.md) 保留其运行器切换决策；预览不使用这些开关。
+[预览工作流](../../../../.github/workflows/build-preview-cloudflare.yml) 使用标准 GitHub 托管 `ubuntu-24.04`。构建、缓存、部署、受保护镜像验证及评论语义保持不变。[规格参考](../../../../.github/preview-sizing/README.zh.md) 负责比较要求。独立的 CI [故障切换手册](../../archived/process/2026-07-26-ci-failover-runbook.md) 保留其运行器切换决策；预览不使用这些开关。
 
 ### 测量
 

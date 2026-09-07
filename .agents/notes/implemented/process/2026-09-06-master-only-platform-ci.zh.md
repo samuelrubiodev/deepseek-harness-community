@@ -16,7 +16,7 @@ Wine 作为独立的托管 Ubuntu master 作业运行一次。其现有的按镜
 
 父工作流与可复用运行时工作流均保留正在执行的 master 推送检查，不被后续 master 推送取消。GitHub 并发机制仍允许替换待执行的运行；手动基准测试可以取消父工作流。master 推送会调度全部三个选定载体，但不保证每个中间提交都得到结果。PR（Pull Request）、手动和发布运行的取消行为保持不变。
 
-本决策部分取代[安装后 wheel 包验证](../testing/2026-08-23-installed-python-wheel-black-box-ci.zh.md)、[原生 Windows CI](2026-08-08-native-windows-pull-request-ci.zh.md)、[串行参考](2026-07-21-serial-cross-platform-ci-reference.zh.md)和[故障切换手册](2026-07-26-ci-failover-runbook.zh.md)中的调度策略。这些记录仍保留产物来源、平台保真度、串行完整性与信任规则的决策价值。
+本决策部分取代[安装后 wheel 包验证](../testing/2026-08-23-installed-python-wheel-black-box-ci.zh.md)、[原生 Windows CI](2026-08-08-native-windows-pull-request-ci.zh.md)、[串行参考](2026-07-21-serial-cross-platform-ci-reference.zh.md)和[故障切换手册](../../archived/process/2026-07-26-ci-failover-runbook.md)中的调度策略。这些记录仍保留产物来源、平台保真度、串行完整性与信任规则的决策价值。
 
 ## Alternatives considered
 

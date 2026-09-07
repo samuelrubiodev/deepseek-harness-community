@@ -16,7 +16,7 @@ Wine runs once as an independent hosted Ubuntu master job. Its existing image-ke
 
 The parent and reusable runtime workflows preserve running master-push checks against subsequent master pushes. GitHub concurrency still permits replacement of pending runs; manual benchmarks can cancel the parent run. A master push schedules all three selected carriers but does not guarantee every intermediate commit reaches a result. PR, manual, and release cancellation retain their existing behavior.
 
-This decision partially supersedes scheduling in the [installed-wheel validation](../testing/2026-08-23-installed-python-wheel-black-box-ci.md), [native Windows CI](2026-08-08-native-windows-pull-request-ci.md), [serial references](2026-07-21-serial-cross-platform-ci-reference.md), and [failover runbook](2026-07-26-ci-failover-runbook.md). Those notes remain active for artifact provenance, platform fidelity, serial completeness, and trust rules.
+This decision partially supersedes scheduling in the [installed-wheel validation](../testing/2026-08-23-installed-python-wheel-black-box-ci.md), [native Windows CI](2026-08-08-native-windows-pull-request-ci.md), [serial references](2026-07-21-serial-cross-platform-ci-reference.md), and [failover runbook](../../archived/process/2026-07-26-ci-failover-runbook.md). Those notes remain active for artifact provenance, platform fidelity, serial completeness, and trust rules.
 
 ## Alternatives considered
 
