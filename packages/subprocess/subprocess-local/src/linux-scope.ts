@@ -377,10 +377,6 @@ function directOutcome(
           return
         }
         if (existsSync(files.requestPath)) {
-          if (signal !== null) {
-            resolveOutcome({ exitCode, signal })
-            return
-          }
           rejectOutcome(new Error('subprocess scope exited before its bootstrap consumed the launch request'))
           return
         }
