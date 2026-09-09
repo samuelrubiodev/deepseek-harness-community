@@ -153,6 +153,7 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
   if (config?.authToken !== undefined && config.authToken.trim() === '') {
     throw new Error('client-connection: authToken must not be blank')
   }
+  assertImageBodyCapacity(ctx, maxRequestBodyBytes)
   const connection = new HostConnectionService(
     ctx,
     trustedHosts,
