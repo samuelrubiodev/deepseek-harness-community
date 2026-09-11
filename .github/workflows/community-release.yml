@@ -1,0 +1,145 @@
+name: Community Release
+
+on:
+  push:
+    tags:
+      - 'dsh-*-community.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create/update release for (e.g. dsh-v0.1.5-rc.2-community.1)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: community-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish Release Notes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Generate Release Notes & Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_INPUT: ${{ inputs.tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node << 'SCRIPT'
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          const repo = process.env.GITHUB_REPOSITORY || 'samuelrubiodev/deepseek-harness-community';
+          const tag = (process.env.TAG_INPUT || process.env.GITHUB_REF_NAME || '').trim();
+          if (!tag) {
+            console.error('Error: Tag name could not be determined.');
+            process.exit(1);
+          }
+
+          console.log(`Processing release for tag: ${tag}`);
+
+          let prevTag = '';
+          try {
+            prevTag = execSync(`git describe --tags --abbrev=0 "${tag}^" 2>/dev/null`).toString().trim();
+          } catch {
+            console.log('No previous tag found; generating notes for single tag.');
+          }
+
+          const range = prevTag ? `${prevTag}..${tag}` : tag;
+          let rawLog = '';
+          try {
+            rawLog = execSync(`git log --no-merges --pretty=format:"%h%x09%s" ${range}`).toString().trim();
+          } catch (err) {
+            console.warn('git log failed:', err.message);
+          }
+
+          const categories = {
+            feat: { title: '🚀 Features', items: [] },
+            fix: { title: '🐛 Bug Fixes', items: [] },
+            perf: { title: '⚡ Performance Improvements', items: [] },
+            refactor: { title: '♻️ Refactoring', items: [] },
+            docs: { title: '📚 Documentation', items: [] },
+            test: { title: '🧪 Tests', items: [] },
+            chore: { title: '🔧 Maintenance & Dependencies', items: [] },
+            other: { title: '🔍 Other Changes', items: [] },
+          };
+
+          for (const line of rawLog.split('\n')) {
+            if (!line.trim()) continue;
+            const [hash, ...rest] = line.split('\t');
+            const msg = rest.join('\t');
+            const link = `[${hash}](https://github.com/${repo}/commit/${hash})`;
+
+            const match = msg.match(/^([a-zA-Z]+)(?:\(([^)]+)\))?!?: (.+)$/);
+            if (match) {
+              const [, type, scope, desc] = match;
+              const key = type.toLowerCase();
+              const entry = scope ? `**${scope}**: ${desc} (${link})` : `${desc} (${link})`;
+              if (categories[key]) {
+                categories[key].items.push(entry);
+              } else if (['ci', 'build', 'style', 'release'].includes(key)) {
+                categories.chore.items.push(entry);
+              } else {
+                categories.other.items.push(entry);
+              }
+            } else {
+              categories.other.items.push(`${msg} (${link})`);
+            }
+          }
+
+          let notes = `Community release for \`${tag}\`.\n\n`;
+
+          for (const { title, items } of Object.values(categories)) {
+            if (items.length > 0) {
+              notes += `### ${title}\n\n`;
+              for (const item of items) {
+                notes += `- ${item}\n`;
+              }
+              notes += '\n';
+            }
+          }
+
+          notes += `### 📦 Docker Images (GHCR)\n\n`;
+          notes += `- \`ghcr.io/${repo}:${tag}\`\n`;
+          notes += `- \`ghcr.io/${repo}:stable\`\n`;
+          notes += `- \`ghcr.io/${repo}:latest\`\n\n`;
+
+          notes += `### 🌐 Community Infrastructure\n\n`;
+          notes += `- Retained LAN host trust and reverse-proxy forwarding (\`DSH_AUTH_MODE=none\` and \`__DSH_TRUSTED_HOSTS__\`).\n\n`;
+
+          if (prevTag) {
+            notes += `**Full Changelog**: https://github.com/${repo}/compare/${prevTag}...${tag}\n`;
+          }
+
+          fs.writeFileSync('RELEASE_NOTES.md', notes, 'utf8');
+          console.log('--- Generated Release Notes ---');
+          console.log(notes);
+
+          const isPrerelease = /-(alpha|beta|rc)/i.test(tag);
+          const prereleaseFlag = isPrerelease ? '--prerelease' : '';
+
+          let releaseExists = false;
+          try {
+            execSync(`gh release view "${tag}" >/dev/null 2>&1`);
+            releaseExists = true;
+          } catch {}
+
+          if (releaseExists) {
+            console.log(`Updating existing release for ${tag}...`);
+            execSync(`gh release edit "${tag}" --title "${tag}" --notes-file RELEASE_NOTES.md ${prereleaseFlag}`, { stdio: 'inherit' });
+          } else {
+            console.log(`Creating new release for ${tag}...`);
+            execSync(`gh release create "${tag}" --title "${tag}" --notes-file RELEASE_NOTES.md ${prereleaseFlag} --verify-tag`, { stdio: 'inherit' });
+          }
+          console.log('Release processing complete!');
+          SCRIPT
