@@ -242,10 +242,15 @@ export function apply(ctx: Context, config: Config): void {
 
   // Register dynamic proxy route for previewing servers on arbitrary ports
   if (typeof ctx.webServer.register === 'function') {
+    let connection: import('./proxy.ts').ProxyConnection | undefined
+    ctx.inject(['connection'], (connCtx) => {
+      connection = (connCtx as unknown as { connection?: import('./proxy.ts').ProxyConnection }).connection
+    })
+
     ctx.effect(() => ctx.webServer.register({
       kind: 'prefix',
       path: PROXY_ROUTE_PREFIX,
-      handler: (req: IncomingMessage, res: ServerResponse) => handleProxyRequest(req, res, ctx),
+      handler: (req: IncomingMessage, res: ServerResponse) => handleProxyRequest(req, res, ctx, connection),
     }), `web-app: ${PROXY_ROUTE_PREFIX}`)
   }
   if (config.surfaceContext) {

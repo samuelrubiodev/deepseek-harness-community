@@ -100,6 +100,26 @@ describe('dynamic port proxy', () => {
         res.end()
         return
       }
+      if (req.url === '/redirect-loopback') {
+        res.writeHead(302, { location: `http://127.0.0.1:${String(targetPort)}/target-page` })
+        res.end()
+        return
+      }
+      if (req.url === '/redirect-localhost') {
+        res.writeHead(302, { location: `http://localhost:${String(targetPort)}/target-page` })
+        res.end()
+        return
+      }
+      if (req.url === '/redirect-external') {
+        res.writeHead(302, { location: 'https://example.com/other' })
+        res.end()
+        return
+      }
+      if (req.url === '/redirect-already-proxied') {
+        res.writeHead(302, { location: `/proxy/${String(targetPort)}/target-page` })
+        res.end()
+        return
+      }
       res.writeHead(200, { 'content-type': 'text/plain' })
       res.end(`echo from target: ${req.url ?? ''}`)
     })
@@ -125,9 +145,45 @@ describe('dynamic port proxy', () => {
       expect(text).toBe('echo from target: /hello/world?q=1')
     }
 
-    // 2. Location header rewrite on redirect
+    // 2. Relative Location header rewrite on redirect
     {
       const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/redirect`, {
+        redirect: 'manual',
+      })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe(`/proxy/${String(targetPort)}/target-page`)
+    }
+
+    // 3. Loopback Location rewrite
+    {
+      const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/redirect-loopback`, {
+        redirect: 'manual',
+      })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe(`/proxy/${String(targetPort)}/target-page`)
+    }
+
+    // 4. Localhost Location rewrite
+    {
+      const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/redirect-localhost`, {
+        redirect: 'manual',
+      })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe(`/proxy/${String(targetPort)}/target-page`)
+    }
+
+    // 5. External Location unchanged
+    {
+      const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/redirect-external`, {
+        redirect: 'manual',
+      })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe('https://example.com/other')
+    }
+
+    // 6. Already proxied Location unchanged
+    {
+      const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/redirect-already-proxied`, {
         redirect: 'manual',
       })
       expect(res.status).toBe(302)
@@ -225,5 +281,48 @@ describe('dynamic port proxy', () => {
     const body = await res.json() as { error?: string; message?: string }
     expect(body.error).toBe('unauthorized')
     expect(body.message).toContain('Authentication required')
+  })
+
+  it('safely tolerates cordis context throwing when accessing connection property', async () => {
+    const ctx = new Context()
+    Reflect.set(ctx, 'webServer', { port: 3080 })
+    Object.defineProperty(ctx, 'connection', {
+      get() {
+        throw new Error('cannot get property "connection" without inject')
+      },
+    })
+    const proxyPort = await createProxyServer(ctx)
+
+    // With no unreachable service, it fails at target connect, returning 502 instead of crashing with 403 or 500
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/65432/`, { redirect: 'manual' })
+    expect(res.status).toBe(502)
+  })
+
+  it('handles malformed request URL returning 400 invalid-url', async () => {
+    const ctx = createMockCtx(3080)
+    let handledStatus = 0
+    let handledBody = ''
+    const fakeReq = {
+      url: 'http://[bad-url',
+      headers: {},
+      socket: {},
+      method: 'GET',
+    }
+    const fakeRes = {
+      set statusCode(val: number) {
+        handledStatus = val
+      },
+      setHeader() {},
+      end(body?: string) {
+        handledBody = body ?? ''
+      },
+    }
+    await handleProxyRequest(
+      fakeReq as unknown as import('node:http').IncomingMessage,
+      fakeRes as unknown as import('node:http').ServerResponse,
+      ctx,
+    )
+    expect(handledStatus).toBe(400)
+    expect(handledBody).toContain('invalid-url')
   })
 })

@@ -15,12 +15,16 @@ import http from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 
 /** Trust surface consumed here; the browser-side connection package owns the full type. */
-interface ProxyConnection {
+export interface ProxyConnection {
   requestRejection(request: { readonly headers: IncomingMessage['headers'] }): 401 | 403 | undefined
 }
 
 function connectionOf(ctx: Context): ProxyConnection | undefined {
-  return (ctx as unknown as { connection?: ProxyConnection }).connection
+  try {
+    return (ctx as unknown as { connection?: ProxyConnection }).connection
+  } catch {
+    return undefined
+  }
 }
 
 /** Route prefix under which dynamic port proxy endpoints are mounted. */
@@ -60,33 +64,38 @@ function rewriteLocation(location: string, port: number): string {
  * @param req - The incoming HTTP request.
  * @param res - The server HTTP response.
  * @param ctx - The Cordis context carrying webServer and connection services.
+ * @param explicitConnection - Optional resolved ProxyConnection instance from inject.
  * @returns A promise resolving when the proxy request cycle completes.
  */
 export async function handleProxyRequest(
   req: IncomingMessage,
   res: ServerResponse,
   ctx: Context,
+  explicitConnection?: ProxyConnection,
 ): Promise<void> {
   try {
     // 1. Connection security / authentication fence
-    try {
-      const rejection = connectionOf(ctx)?.requestRejection(req)
-      if (rejection !== undefined) {
-        res.statusCode = rejection
+    const conn = explicitConnection ?? connectionOf(ctx)
+    if (conn !== undefined) {
+      try {
+        const rejection = conn.requestRejection(req)
+        if (rejection !== undefined) {
+          res.statusCode = rejection
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify({
+            error: rejection === 401 ? 'unauthorized' : 'forbidden',
+            message: rejection === 401
+              ? 'Authentication required. Please authenticate in the DeepSeek Harness Web UI first.'
+              : 'Access forbidden by trust fence.',
+          }))
+          return
+        }
+      } catch {
+        res.statusCode = 403
         res.setHeader('content-type', 'application/json; charset=utf-8')
-        res.end(JSON.stringify({
-          error: rejection === 401 ? 'unauthorized' : 'forbidden',
-          message: rejection === 401
-            ? 'Authentication required. Please authenticate in the DeepSeek Harness Web UI first.'
-            : 'Access forbidden by trust fence.',
-        }))
+        res.end(JSON.stringify({ error: 'forbidden', message: 'Trust evaluation failed' }))
         return
       }
-    } catch {
-      res.statusCode = 403
-      res.setHeader('content-type', 'application/json; charset=utf-8')
-      res.end(JSON.stringify({ error: 'forbidden', message: 'Trust evaluation failed' }))
-      return
     }
 
     // 2. Parse URL and extract port
@@ -115,7 +124,7 @@ export async function handleProxyRequest(
       return
     }
 
-    const portStr = match[1] ?? ''
+    const portStr = String(match[1])
     const port = parseInt(portStr, 10)
     const rest = match[2]
 
@@ -145,7 +154,7 @@ export async function handleProxyRequest(
     }
 
     // 4. Forward to 127.0.0.1:port
-    const targetPath = (rest || '/') + search
+    const targetPath = rest + search
     const forwardHeaders: http.OutgoingHttpHeaders = {}
     for (const [key, value] of Object.entries(req.headers)) {
       if (value === undefined) continue
