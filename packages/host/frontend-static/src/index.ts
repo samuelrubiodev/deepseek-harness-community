@@ -58,6 +58,23 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
   'ENOTDIR',
 ])
 
+function proxyPortFromReferer(referer: string | undefined): string | undefined {
+  if (referer === undefined) return undefined
+  try {
+    const url = new URL(referer)
+    const match = /^\/proxy\/(\d+)(?:\/.*)?$/u.exec(url.pathname)
+    if (match?.[1] !== undefined) {
+      const port = parseInt(match[1], 10)
+      if (!Number.isNaN(port) && port >= 1 && port <= 65535) {
+        return match[1]
+      }
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
 /**
  * Serve one GET/HEAD static request from the dist root.
  * @param pathname - decoded URL pathname of the request.
@@ -67,11 +84,13 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
  * @param authorizeIndex - authenticates an index response before its bytes are read.
  * @param renderIndex - produces the index.html body (structured injection
  * rendering) for the dist root and configured index path.
+ * @param onMiss - optional callback invoked when the path is not found in the dist root.
  */
 export async function serveStatic(
   pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
   authorizeIndex: () => boolean,
   renderIndex: () => Promise<string>,
+  onMiss?: () => void,
 ): Promise<void> {
   const target = resolve(normalize(join(distRoot, pathname)))
   // Traversal rejection: the target must be distRoot itself (`/`) or stay under
@@ -97,6 +116,10 @@ export async function serveStatic(
     // Only absent or non-file targets are 404; other filesystem failures reach
     // the webserver's request-failure handling.
     if (!STATIC_MISS_CODES.has((error as NodeJS.ErrnoException).code)) throw error
+    if (onMiss !== undefined) {
+      onMiss()
+      return
+    }
     res.writeHead(404)
     res.end()
     return
@@ -122,9 +145,16 @@ export function apply(ctx: Context, config: Config): void {
     return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="/">`)
   }
   ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
+    const proxyPort = proxyPortFromReferer(req.headers.referer)
+
     // Non-GET/HEAD without a matching named route is 405 (fallback-only
     // semantics: named routes own their method handling).
     if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (proxyPort !== undefined) {
+        res.writeHead(307, { location: `/proxy/${proxyPort}${req.url ?? '/'}` })
+        res.end()
+        return
+      }
       res.writeHead(405)
       res.end()
       return
@@ -138,6 +168,10 @@ export function apply(ctx: Context, config: Config): void {
       distIndex,
       () => ctx.connection.authorizeIndex(req, res),
       renderIndex,
+      proxyPort !== undefined ? () => {
+        res.writeHead(307, { location: `/proxy/${proxyPort}${req.url ?? '/'}` })
+        res.end()
+      } : undefined,
     )
   }), 'frontend-static: fallback seat')
 }

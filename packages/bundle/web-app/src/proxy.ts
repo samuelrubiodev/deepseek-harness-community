@@ -59,6 +59,69 @@ function rewriteLocation(location: string, port: number): string {
 }
 
 /**
+ * Rewrite HTML content from proxied dev servers so that root-relative asset URLs,
+ * base tags, and client fetch/XHR requests remain scoped under the proxy path.
+ *
+ * @param html - Original HTML markup from the target server.
+ * @param port - Internal dev server port.
+ * @returns Rewritten HTML markup with base tag and client proxy shim.
+ */
+export function rewriteHtml(html: string, port: number): string {
+  const proxyBase = `${PROXY_ROUTE_PREFIX}/${String(port)}/`
+
+  const clientShim = `<script>
+(() => {
+  const base = '${PROXY_ROUTE_PREFIX}/${String(port)}';
+  const origFetch = window.fetch;
+  if (typeof origFetch === 'function') {
+    window.fetch = function(input, init) {
+      if (typeof input === 'string' && input.startsWith('/') && !input.startsWith('/proxy/')) {
+        input = base + input;
+      } else if (typeof Request !== 'undefined' && input instanceof Request && input.url.startsWith('/') && !input.url.startsWith('/proxy/')) {
+        input = new Request(base + input.url, input);
+      }
+      return origFetch.call(this, input, init);
+    };
+  }
+  if (typeof XMLHttpRequest !== 'undefined') {
+    const origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...args) {
+      if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('/proxy/')) {
+        url = base + url;
+      }
+      return origOpen.call(this, method, url, ...args);
+    };
+  }
+})();
+</script>`
+
+  let rewritten = html
+
+  // 1. Inject or update <base href="/proxy/<port>/"> and client shim
+  if (/<base\s[^>]*href=/iu.test(rewritten)) {
+    rewritten = rewritten.replace(/<base\s+([^>]*?)href=(["'])(.*?)\2([^>]*)>/giu, `<base $1href=$2${proxyBase}$2$4>\n  ${clientShim}`)
+  } else if (/<head(?:\s[^>]*)?>/iu.test(rewritten)) {
+    rewritten = rewritten.replace(/<head(?:\s[^>]*)?>/iu, open => `${open}\n  <base href="${proxyBase}">\n  ${clientShim}`)
+  } else {
+    rewritten = `<base href="${proxyBase}">\n${clientShim}\n${rewritten}`
+  }
+
+  // 2. Rewrite root-relative URLs in tag attributes (href, src, action, poster)
+  rewritten = rewritten.replace(
+    /\b(href|src|action|poster)=(["'])\/(?!\/|proxy\/\d+)(.*?)\2/giu,
+    (_match, attr, quote, path) => `${attr}=${quote}${proxyBase}${path}${quote}`,
+  )
+
+  // 3. Rewrite root-relative module import statements
+  rewritten = rewritten.replace(
+    /\bfrom\s+(["'])\/(?!\/|proxy\/\d+)(.*?)\1/gu,
+    (_match, quote, path) => `from ${quote}${proxyBase}${path}${quote}`,
+  )
+
+  return rewritten
+}
+
+/**
  * Handle incoming dynamic proxy requests on `/proxy/:port/*`.
  *
  * @param req - The incoming HTTP request.
@@ -165,6 +228,7 @@ export async function handleProxyRequest(
     forwardHeaders.host = `127.0.0.1:${String(port)}`
     forwardHeaders['x-forwarded-host'] = req.headers.host ?? `127.0.0.1:${String(webServerPort ?? 3080)}`
     forwardHeaders['x-forwarded-proto'] = 'http'
+    forwardHeaders['accept-encoding'] = 'identity'
     if (req.socket.remoteAddress) {
       forwardHeaders['x-forwarded-for'] = req.socket.remoteAddress
     }
@@ -190,6 +254,9 @@ export async function handleProxyRequest(
         // Prevent outer WebServer gzip middleware from corrupting proxied streams or content lengths
         res.setHeader('x-no-compression', '1')
 
+        const contentType = targetRes.headers['content-type'] ?? ''
+        const isHtml = typeof contentType === 'string' && contentType.toLowerCase().includes('text/html')
+
         // Forward response headers with location rewriting and hop-by-hop stripping
         for (const [key, value] of Object.entries(targetRes.headers)) {
           if (value === undefined) continue
@@ -198,6 +265,8 @@ export async function handleProxyRequest(
 
           if (lower === 'location' && typeof value === 'string') {
             res.setHeader(key, rewriteLocation(value, port))
+          } else if (isHtml && lower === 'content-length') {
+            continue
           } else {
             try {
               res.setHeader(key, value)
@@ -207,12 +276,31 @@ export async function handleProxyRequest(
           }
         }
 
-        targetRes.pipe(res)
-        targetRes.on('end', finish)
-        targetRes.on('error', () => {
-          if (!res.writableEnded) res.end()
-          finish()
-        })
+        if (isHtml) {
+          const chunks: Buffer[] = []
+          targetRes.on('data', (chunk: Buffer) => {
+            chunks.push(chunk)
+          })
+          targetRes.on('end', () => {
+            const rawHtml = Buffer.concat(chunks).toString('utf8')
+            const rewritten = rewriteHtml(rawHtml, port)
+            const bodyBuf = Buffer.from(rewritten, 'utf8')
+            res.setHeader('content-length', bodyBuf.length)
+            res.end(bodyBuf)
+            finish()
+          })
+          targetRes.on('error', () => {
+            if (!res.writableEnded) res.end()
+            finish()
+          })
+        } else {
+          targetRes.pipe(res)
+          targetRes.on('end', finish)
+          targetRes.on('error', () => {
+            if (!res.writableEnded) res.end()
+            finish()
+          })
+        }
       })
 
       targetReq.on('error', (err: NodeJS.ErrnoException) => {

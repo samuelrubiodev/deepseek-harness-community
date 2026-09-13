@@ -195,6 +195,22 @@ describe('real Loader composition', () => {
     expect((await request(port, '/app.js', { method: 'POST' })).status).toBe(405)
     expect((await request(port, '/bad%00path')).status).toBe(400)
 
+    // Missing paths or non-GET requests from a proxied app redirect to the proxy path via 307
+    const refererGet = await fetch(`http://127.0.0.1:${String(port)}/styles.css`, {
+      headers: { referer: 'http://127.0.0.1:3080/proxy/8123/' },
+      redirect: 'manual',
+    })
+    expect(refererGet.status).toBe(307)
+    expect(refererGet.headers.get('location')).toBe('/proxy/8123/styles.css')
+
+    const refererPost = await fetch(`http://127.0.0.1:${String(port)}/custom-endpoint`, {
+      method: 'POST',
+      headers: { referer: 'http://127.0.0.1:3080/proxy/8123/' },
+      redirect: 'manual',
+    })
+    expect(refererPost.status).toBe(307)
+    expect(refererPost.headers.get('location')).toBe('/proxy/8123/custom-endpoint')
+
     // HMR safety: disposing the frontend row releases the fallback seat (the
     // unclaimed webserver answers 404) and the seat is claimable again.
     const frontendEntry = [...loaded.loader.entries()].find(e => e.options.id === 'frontend')

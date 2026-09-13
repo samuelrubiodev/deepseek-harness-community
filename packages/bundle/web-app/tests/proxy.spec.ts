@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { handleProxyRequest, PROXY_ROUTE_PREFIX } from '../src/proxy.ts'
+import { handleProxyRequest, PROXY_ROUTE_PREFIX, rewriteHtml } from '../src/proxy.ts'
 
 describe('dynamic port proxy', () => {
   const serversToClose: Server[] = []
@@ -324,5 +324,67 @@ describe('dynamic port proxy', () => {
     )
     expect(handledStatus).toBe(400)
     expect(handledBody).toContain('invalid-url')
+  })
+
+  it('rewrites HTML tags and injects base and client shim correctly', () => {
+    const inputHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Page</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="/favicon.ico">
+</head>
+<body>
+  <script src="/main.js"></script>
+  <img src="/assets/dragonfly.png">
+  <a href="/about">About</a>
+  <a href="https://external.com">External</a>
+  <a href="//cdn.jsdelivr.net/three.js">CDN</a>
+  <a href="/proxy/8123/existing">Existing</a>
+  <form action="/submit" method="post"></form>
+</body>
+</html>`
+
+    const outputHtml = rewriteHtml(inputHtml, 8123)
+    expect(outputHtml).toContain('<base href="/proxy/8123/">')
+    expect(outputHtml).toContain('href="/proxy/8123/styles.css"')
+    expect(outputHtml).toContain('href="/proxy/8123/favicon.ico"')
+    expect(outputHtml).toContain('src="/proxy/8123/main.js"')
+    expect(outputHtml).toContain('src="/proxy/8123/assets/dragonfly.png"')
+    expect(outputHtml).toContain('href="/proxy/8123/about"')
+    expect(outputHtml).toContain('action="/proxy/8123/submit"')
+    expect(outputHtml).toContain('href="https://external.com"')
+    expect(outputHtml).toContain('href="//cdn.jsdelivr.net/three.js"')
+    expect(outputHtml).toContain('href="/proxy/8123/existing"')
+    expect(outputHtml).not.toContain('/proxy/8123/proxy/8123/')
+    expect(outputHtml).toContain("const base = '/proxy/8123';")
+  })
+
+  it('proxies HTML responses, buffering and rewriting root-relative asset paths', async () => {
+    const targetServer = createServer((_req, res) => {
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+      })
+      res.end('<html><head><title>App</title><link rel="stylesheet" href="/styles.css"></head><body><script src="/main.js"></script></body></html>')
+    })
+
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx)
+
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8')
+    const html = await res.text()
+    expect(html).toContain(`/proxy/${String(targetPort)}/styles.css`)
+    expect(html).toContain(`/proxy/${String(targetPort)}/main.js`)
+    expect(html).toContain(`<base href="/proxy/${String(targetPort)}/">`)
   })
 })
