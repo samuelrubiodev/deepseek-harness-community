@@ -1,6 +1,15 @@
 # AGENTS.md
 
-DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
+DeepSeek Harness (Community Fork) is an all-plugin Cordis agent harness optimized for home servers, NAS devices, and containerized LAN deployments. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
+
+## Community fork architecture and server environment
+
+This repository is the Community Fork (`samuelrubiodev/deepseek-harness-community`). Unlike upstream which binds exclusively to `127.0.0.1` on local workstations, this fork is designed for Docker Compose on remote servers, home servers, and NAS platforms (Synology, Unraid, TrueNAS):
+
+- **Declarative LAN and reverse-proxy trust**: Upstream rejects non-loopback Host headers with 403. This fork enables LAN access via `DSH_TRUSTED_HOSTS` (comma-separated IPs/hostnames) and reverse-proxy setups (Nginx, Caddy, Traefik, Cloudflare Tunnel) via `DSH_REVERSE_PROXY=true` reading `X-Forwarded-Host`/`X-Forwarded-Proto`. The Settings UI is available on all trusted hosts.
+- **Dynamic Port Proxy (`/proxy/<port>/`)**: In Docker, only the DSH port (default `3080`) is exposed. When creating web servers, previews, or dev frontends (Python `http.server`, Vite, Node, etc.) on internal ports (e.g. `3010`, `5173`, `8080`), **never** instruct the user to access `http://127.0.0.1:<port>`, `localhost`, or open new container ports. **Always** direct the user to `http://<server-host>:3080/proxy/<port>/` (with trailing slash). The proxy rewrites relative redirects and strips hop-by-hop headers transparently.
+- **Headless browser verification**: The container includes Chromium and Playwright dependencies so agents can automate browser workflows and capture screenshots directly without requiring an external display server.
+- **Resource safety for checks**: Never run repository-wide aggregate gates like `pnpm run check:ci:static` or `pnpm run check:all` on the host; they spawn concurrent multi-core tasks that exhaust RAM and CPU. Run only targeted single-file unit tests (`pnpm vitest run <file>`) and focused package linters (`pnpm exec oxlint <package>`).
 
 ## Pre-stable APIs and released Session data
 
