@@ -12,6 +12,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { networkInterfaces } from 'node:os'
@@ -26,6 +27,9 @@ import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-shell-env'
+import { handleProxyRequest, PROXY_ROUTE_PREFIX } from './proxy.ts'
+
+export { handleProxyRequest, PROXY_ROUTE_PREFIX } from './proxy.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-app'
@@ -174,7 +178,7 @@ function resolveDistIndex(): string {
   }
 }
 
-/** Start the maintained platform opener without forwarding Harness credentials. */
+/** Spawn the browser-open process on the given URL. */
 function spawnBrowserLauncher(url: string): ChildProcess {
   return spawn(process.execPath, [
     '--input-type=module',
@@ -235,6 +239,20 @@ export function apply(ctx: Context, config: Config): void {
   // Release dependent rows only after bind-dependent trust has been sampled once.
   ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
+
+  // Register dynamic proxy route for previewing servers on arbitrary ports
+  if (typeof ctx.webServer.register === 'function') {
+    let connection: import('./proxy.ts').ProxyConnection | undefined
+    ctx.inject(['connection'], (connCtx) => {
+      connection = (connCtx as unknown as { connection?: import('./proxy.ts').ProxyConnection }).connection
+    })
+
+    ctx.effect(() => ctx.webServer.register({
+      kind: 'prefix',
+      path: PROXY_ROUTE_PREFIX,
+      handler: (req: IncomingMessage, res: ServerResponse) => handleProxyRequest(req, res, ctx, connection),
+    }), `web-app: ${PROXY_ROUTE_PREFIX}`)
+  }
   if (config.surfaceContext) {
     ctx.inject(['systemPrompt'], (promptCtx) => {
       addHarnessSourceSection(promptCtx, SOURCE_ROOT)

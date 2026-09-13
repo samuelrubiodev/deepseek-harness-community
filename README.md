@@ -13,6 +13,8 @@ Upstream binds to `127.0.0.1` only and rejects LAN or proxy access by design. Th
 - **LAN access** (`http://<your-ip>:3080`) through an explicit trusted-hosts allowlist (`DSH_TRUSTED_HOSTS`) instead of hard-coded 403 rejections.
 - **Reverse-proxy support** (Nginx, Caddy, Traefik, Cloudflare Tunnel): forward `X-Forwarded-Host` / `X-Forwarded-Proto` and the trust fence and session cookies follow the browser-facing authority.
 - **Settings UI unlocked** for clients on trusted hosts — not just `localhost`.
+- **Built-in Dynamic Port Proxy** (`/proxy/<port>/`): view and interact with web servers, frontends, and preview apps started by the agent on any internal port (e.g. `http://<server-ip>:3080/proxy/8210/`, `5173`, `3000`) through the single DSH port without opening extra Docker ports.
+- **Headless Browser & Visual Inspection**: the Docker image includes Chromium, system graphics libraries, and pre-installed Playwright so agents can run headless browsers, take WebGL screenshots, and visually self-verify out of the box.
 - **Docker-native plugin management**: `pnpm` is preinstalled and its store persists on the `/data` volume.
 - **Structured diagnostics**: rejected requests log an exact, credential-free reason (`untrusted host "…"`, `origin mismatch (…)`, `session cookie expired at …`) to `docker compose logs`.
 
