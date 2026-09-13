@@ -134,4 +134,96 @@ describe('dynamic port proxy', () => {
       expect(res.headers.get('location')).toBe(`/proxy/${String(targetPort)}/target-page`)
     }
   })
+
+  it('strips hop-by-hop headers and sets x-no-compression on proxied responses', async () => {
+    const targetServer = createServer((_req, res) => {
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'proxy-authenticate': 'Basic realm="internal"',
+        'custom-header': 'safe-value',
+      })
+      res.end('<h1>Hello from internal dev server</h1>')
+    })
+
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx)
+
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-no-compression')).toBe('1')
+    expect(res.headers.get('custom-header')).toBe('safe-value')
+    expect(res.headers.get('proxy-authenticate')).toBeNull()
+    const html = await res.text()
+    expect(html).toContain('Hello from internal dev server')
+  })
+
+  it('forwards request body on POST requests', async () => {
+    let receivedBody = ''
+    const targetServer = createServer((req, res) => {
+      req.setEncoding('utf8')
+      req.on('data', (chunk: Buffer | string) => {
+        receivedBody += chunk.toString()
+      })
+      req.on('end', () => {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, received: receivedBody }))
+      })
+    })
+
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx)
+
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/api/test`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ping: 'pong' }),
+    })
+    expect(res.status).toBe(200)
+    const data = await res.json() as { ok: boolean; received: string }
+    expect(data.ok).toBe(true)
+    expect(data.received).toBe(JSON.stringify({ ping: 'pong' }))
+  })
+
+  it('handles trust evaluation errors safely by returning 403', async () => {
+    const ctx = new Context()
+    Reflect.set(ctx, 'webServer', { port: 3080 })
+    Reflect.set(ctx, 'connection', {
+      requestRejection: () => {
+        throw new Error('Unexpected connection evaluation error')
+      },
+    })
+    const proxyPort = await createProxyServer(ctx)
+
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/8080/`, { redirect: 'manual' })
+    expect(res.status).toBe(403)
+    const body = await res.json() as { error?: string }
+    expect(body.error).toBe('forbidden')
+  })
+
+  it('handles 401 rejection with structured JSON error response', async () => {
+    const ctx = createMockCtx(3080, 401)
+    const proxyPort = await createProxyServer(ctx)
+
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/8080/`, { redirect: 'manual' })
+    expect(res.status).toBe(401)
+    const body = await res.json() as { error?: string; message?: string }
+    expect(body.error).toBe('unauthorized')
+    expect(body.message).toContain('Authentication required')
+  })
 })

@@ -151,8 +151,7 @@ function webSurfacePrompt(webUrl: string): string {
     + updateContract
     + 'Starting another server does not update this GUI. '
     + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
-    + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL. '
-    + `When running local development or preview servers in background jobs (e.g. on port PORT), they can be viewed through this Web GUI at ${webUrl}${PROXY_ROUTE_PREFIX}/<port>/. Inform the user of this URL so they can view what you are developing.`
+    + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
 }
 
 /** Resolve the canonical loopback URL from the active Web server. */
