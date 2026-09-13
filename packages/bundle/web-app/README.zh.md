@@ -89,12 +89,14 @@ URL 行与浏览器交接都是就绪信号：监督方一观察到该行就发�
 |---|---|
 | [`src/index.ts`](src/index.ts) | `web-app` 粘合插件：dist 解析、LAN 信任采样、提示词段落、bash 变量、URL 行、浏览器交接 |
 | [`src/startup.ts`](src/startup.ts) | `web-startup` 提供方：`--host`、`--port`、`--trusted-host`、`--no-open`、`--help` |
+| [`src/proxy.ts`](src/proxy.ts) | 动态端口代理（`/proxy/:port/*`）：带连接认证与重定向重写地转发至本地开发服务 |
 | [`cordis.patch.yml`](cordis.patch.yml) | Web patch：重述的基础值、Web 宿主行、浏览器名录、preset 之后的 agent 层 |
 | — | 不发布运行时不变式伴生入口；本包只持有静态 contribution 列表，每项 contribution 都由其 registry 释放。 |
 | [`tests/web-app.spec.ts`](tests/web-app.spec.ts) | dist 解析、fallback 席位、提示词段落、就绪宣告 |
 | [`tests/startup.spec.ts`](tests/startup.spec.ts) | 在真实 Loader 树上的命令行解析 |
 | [`tests/trusted-hosts.spec.ts`](tests/trusted-hosts.spec.ts) | LAN 信任采样 |
 | [`tests/browser-open.spec.ts`](tests/browser-open.spec.ts) | 页面可达后的默认浏览器交接 |
+| [`tests/proxy.spec.ts`](tests/proxy.spec.ts) | 动态 HTTP 端口代理行为、认证校验、重定向重写与错误处理 |
 
 ### 不变式归属
 

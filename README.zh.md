@@ -13,6 +13,8 @@
 - **局域网访问**（`http://<你的IP>:3080`）：通过显式的受信主机白名单（`DSH_TRUSTED_HOSTS`）实现，而不是硬编码的 403 拒绝。
 - **反向代理支持**（Nginx、Caddy、Traefik、Cloudflare Tunnel）：代理转发 `X-Forwarded-Host` / `X-Forwarded-Proto` 后，信任栅栏与会话 Cookie 会跟随浏览器所见的权威地址。
 - **设置界面解锁**：来自受信主机的客户端也能使用设置面板——不再局限于 `localhost`。
+- **内置动态端口反向代理**（`/proxy/<端口>/`）：通过 DSH 单一暴露端口，直接在浏览器中访问与预览 agent 在内部任意端口启动的开发服务器（如 `http://<服务器IP>:3080/proxy/8210/`、`5173`、`3000`），无需在 Docker 中映射额外端口。
+- **容器内无头浏览器与视觉自检**：Docker 镜像预装了 Chromium、系统图形库与 Playwright，支持 agent 原生运行无头浏览器、截取 WebGL 渲染图并在对话中完成视觉自验。
 - **Docker 原生插件管理**：`pnpm` 已预装，其存储区持久化在 `/data` 卷上。
 - **结构化诊断**：被拒绝的请求会在 `docker compose logs` 中输出精确且不含凭据的原因（`untrusted host "…"`、`origin mismatch (…)`、`session cookie expired at …`）。
 
