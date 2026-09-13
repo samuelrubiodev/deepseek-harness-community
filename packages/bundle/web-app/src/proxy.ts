@@ -23,6 +23,7 @@ function connectionOf(ctx: Context): ProxyConnection | undefined {
   return (ctx as unknown as { connection?: ProxyConnection }).connection
 }
 
+/** Route prefix under which dynamic port proxy endpoints are mounted. */
 export const PROXY_ROUTE_PREFIX = '/proxy'
 
 /**
