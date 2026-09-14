@@ -59,20 +59,15 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
 ])
 
 function proxyPortFromReferer(referer: string | undefined): string | undefined {
-  if (referer === undefined) return undefined
-  try {
-    const url = new URL(referer)
-    const match = /^\/proxy\/(\d+)(?:\/.*)?$/u.exec(url.pathname)
-    if (match?.[1] !== undefined) {
-      const port = parseInt(match[1], 10)
-      if (!Number.isNaN(port) && port >= 1 && port <= 65535) {
-        return match[1]
-      }
-    }
-  } catch {
-    return undefined
-  }
-  return undefined
+  if (typeof referer !== 'string') return undefined
+  const marker = '/proxy/'
+  const idx = referer.indexOf(marker)
+  if (idx === -1) return undefined
+  const sub = referer.slice(idx + marker.length)
+  const slash = sub.indexOf('/')
+  const portStr = slash === -1 ? sub : sub.slice(0, slash)
+  const num = Number(portStr)
+  return Number.isInteger(num) && num >= 1 && num <= 65535 ? portStr : undefined
 }
 
 /**

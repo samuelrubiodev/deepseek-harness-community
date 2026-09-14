@@ -67,6 +67,32 @@ function rewriteLocation(location: string, port: number): string {
   }
 }
 
+function buildForwardHeaders(
+  req: IncomingMessage,
+  port: number,
+  webServerPort: number | undefined,
+  mode: 'http' | 'websocket',
+): http.OutgoingHttpHeaders {
+  const forwardHeaders: http.OutgoingHttpHeaders = {}
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value === undefined) continue
+    if (mode === 'http' && HOP_BY_HOP_HEADERS.has(key.toLowerCase())) continue
+    forwardHeaders[key] = value
+  }
+  forwardHeaders.host = `127.0.0.1:${String(port)}`
+  forwardHeaders['x-forwarded-host'] = req.headers.host ?? `127.0.0.1:${String(webServerPort ?? 3080)}`
+  forwardHeaders['x-forwarded-proto'] = 'http'
+  if (mode === 'http') {
+    forwardHeaders['accept-encoding'] = 'identity'
+  } else if (req.headers.origin !== undefined) {
+    forwardHeaders.origin = `http://127.0.0.1:${String(port)}`
+  }
+  if (req.socket.remoteAddress) {
+    forwardHeaders['x-forwarded-for'] = req.socket.remoteAddress
+  }
+  return forwardHeaders
+}
+
 
 /**
  * Rewrite HTML content from proxied dev servers so that root-relative asset URLs,
@@ -284,20 +310,7 @@ export async function handleProxyRequest(
 
     // 4. Forward to 127.0.0.1:port
     const targetPath = rest + search
-    const forwardHeaders: http.OutgoingHttpHeaders = {}
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (value === undefined) continue
-      const lower = key.toLowerCase()
-      if (HOP_BY_HOP_HEADERS.has(lower)) continue
-      forwardHeaders[key] = value
-    }
-    forwardHeaders.host = `127.0.0.1:${String(port)}`
-    forwardHeaders['x-forwarded-host'] = req.headers.host ?? `127.0.0.1:${String(webServerPort ?? 3080)}`
-    forwardHeaders['x-forwarded-proto'] = 'http'
-    forwardHeaders['accept-encoding'] = 'identity'
-    if (req.socket.remoteAddress) {
-      forwardHeaders['x-forwarded-for'] = req.socket.remoteAddress
-    }
+    const forwardHeaders = buildForwardHeaders(req, port, webServerPort, 'http')
 
     await new Promise<void>((resolve) => {
       const finish = onceCompleter(resolve)
@@ -506,20 +519,7 @@ export async function handleProxyUpgrade(
     }
 
     // 3. Forward to 127.0.0.1:port
-    const forwardHeaders: http.OutgoingHttpHeaders = {}
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (value === undefined) continue
-      forwardHeaders[key] = value
-    }
-    forwardHeaders.host = `127.0.0.1:${String(port)}`
-    forwardHeaders['x-forwarded-host'] = req.headers.host ?? `127.0.0.1:${String(webServerPort ?? 3080)}`
-    forwardHeaders['x-forwarded-proto'] = 'http'
-    if (req.headers.origin !== undefined) {
-      forwardHeaders.origin = `http://127.0.0.1:${String(port)}`
-    }
-    if (req.socket.remoteAddress) {
-      forwardHeaders['x-forwarded-for'] = req.socket.remoteAddress
-    }
+    const forwardHeaders = buildForwardHeaders(req, port, webServerPort, 'websocket')
 
     await new Promise<void>((resolve) => {
       const finish = onceCompleter(resolve)

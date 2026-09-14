@@ -293,27 +293,14 @@ export class WebServer extends Service {
         socket.destroy()
         return
       }
-      if (route === undefined) {
-        const fallback = this.fallbackUpgrade
-        if (fallback === undefined) {
-          socket.destroy()
-          return
-        }
-        this.upgradedSockets.add(socket)
-        try {
-          Promise.resolve(fallback(req, socket, head)).catch((error: unknown) => {
-            this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
-            socket.destroy()
-          })
-        } catch (error) {
-          this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
-          socket.destroy()
-        }
+      const handler = route?.handler ?? this.fallbackUpgrade
+      if (handler === undefined) {
+        socket.destroy()
         return
       }
       this.upgradedSockets.add(socket)
       try {
-        Promise.resolve(route.handler(req, socket, head)).catch((error: unknown) => {
+        Promise.resolve(handler(req, socket, head)).catch((error: unknown) => {
           this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
           socket.destroy()
         })
@@ -348,28 +335,15 @@ export class WebServer extends Service {
     }, 'webServer.listen')
   }
 
+
   /** Longest-prefix-wins over the prefix table after an exact-table miss. */
   private match(pathname: string): WebRoute | undefined {
-    const exact = this.exact.get(pathname)
-    if (exact !== undefined) return exact
-    let best: WebRoute | undefined
-    for (const [prefix, route] of this.prefixes) {
-      if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) continue
-      if (best === undefined || prefix.length > best.path.length) best = route
-    }
-    return best
+    return this.exact.get(pathname) ?? matchPrefixTable(this.prefixes, pathname)
   }
 
   /** Longest-prefix-wins over the prefix upgrade table after an exact-table miss. */
   private matchUpgrade(pathname: string): WebUpgradeRoute | undefined {
-    const exact = this.exactUpgrades.get(pathname)
-    if (exact !== undefined) return exact
-    let best: WebUpgradeRoute | undefined
-    for (const [prefix, route] of this.prefixUpgrades) {
-      if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) continue
-      if (best === undefined || prefix.length > best.path.length) best = route
-    }
-    return best
+    return this.exactUpgrades.get(pathname) ?? matchPrefixTable(this.prefixUpgrades, pathname)
   }
 
   /**
@@ -405,6 +379,15 @@ export class WebServer extends Service {
   renderIndex(html: string): string {
     return this.applyIndexTaps(renderIndexInjections(html, this.collectIndexInjections()))
   }
+}
+
+function matchPrefixTable<T extends { path: string }>(table: Map<string, T>, pathname: string): T | undefined {
+  let best: T | undefined
+  for (const [prefix, route] of table) {
+    if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) continue
+    if (best === undefined || prefix.length > best.path.length) best = route
+  }
+  return best
 }
 
 export default WebServer

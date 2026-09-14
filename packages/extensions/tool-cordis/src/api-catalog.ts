@@ -2818,9 +2818,15 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'registerUpgrade(route: WebUpgradeRoute): () => void',
-        description: 'Register an exact-path HTTP upgrade route. Duplicate paths throw because one socket can have only one protocol owner.',
-        parameters: [{ name: 'route', description: 'pathname and handler owning negotiation plus socket use.' }],
+        description: 'Register an HTTP upgrade route. Duplicate (kind, path) throws because one socket can have only one protocol owner.',
+        parameters: [{ name: 'route', description: 'kind, pathname, and handler owning negotiation plus socket use.' }],
         returns: 'the disposer removing the route.',
+      },
+      {
+        signature: 'registerFallbackUpgrade(handler: WebUpgradeRoute[\'handler\']): () => void',
+        description: 'Claim the fallback upgrade seat: the handler answering every upgrade request no named upgrade route matches. One owner only — a second registration throws.',
+        parameters: [{ name: 'handler', description: 'owns protocol negotiation and socket lifecycle for unmatched upgrades.' }],
+        returns: 'the disposer releasing the seat.',
       },
       {
         signature: 'registerFallback(handler: WebRoute[\'handler\']): () => void',
@@ -6356,7 +6362,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WebUpgradeRoute',
-    declaration: 'export interface WebUpgradeRoute {\n    path: string;\n    handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>;\n}',
+    declaration: 'export interface WebUpgradeRoute {\n    kind?: WebRouteKind;\n    path: string;\n    handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>;\n}',
   },
   {
     name: 'WorkflowAgentEndInfo',
