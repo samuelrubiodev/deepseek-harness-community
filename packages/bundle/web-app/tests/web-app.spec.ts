@@ -8,9 +8,10 @@
 import { EventEmitter } from 'node:events'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PassThrough } from 'node:stream'
+import { Duplex, PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createLaunchEnvironmentSnapshot, DSH_LAUNCH_ENVIRONMENT_KEY } from '@deepseek-ai/dsh-launch-environment'
@@ -444,5 +445,92 @@ describe('web-app runtime glue', () => {
     errored.emit('error', new Error('spawn failed'))
     await errorAssertion
     expect(errored.listenerCount('close')).toBe(0)
+  })
+
+  it('registers dynamic proxy routes and invokes handlers when webServer supports them', async () => {
+    stageDist()
+    const ctx = new Context()
+    type RouteItem = { kind: string; path: string; handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void> }
+    type UpgradeItem = {
+      kind: string
+      path: string
+      handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>
+    }
+    type UpgradeFallbackItem = (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>
+
+    const registeredRoutes: RouteItem[] = []
+    const registeredUpgrades: UpgradeItem[] = []
+    let registeredFallbackUpgrade: UpgradeFallbackItem | undefined
+
+    const server = {
+      host: '127.0.0.1',
+      port: 4567,
+      registerFallback: () => () => {},
+      renderIndex: (html: string) => html,
+      register: (route: RouteItem) => {
+        registeredRoutes.push(route)
+        return () => {}
+      },
+      registerUpgrade: (route: UpgradeItem) => {
+        registeredUpgrades.push(route)
+        return () => {}
+      },
+      registerFallbackUpgrade: (handler: UpgradeFallbackItem) => {
+        registeredFallbackUpgrade = handler
+        return () => {}
+      },
+    }
+    ctx.provide('webServer', server as unknown as WebServer)
+    provideConnection(ctx)
+    apply(ctx, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(registeredRoutes).toHaveLength(1)
+    expect(registeredRoutes[0]!.path).toBe('/proxy')
+    expect(registeredUpgrades).toHaveLength(1)
+    expect(registeredUpgrades[0]!.path).toBe('/proxy')
+    expect(registeredFallbackUpgrade).toBeDefined()
+
+    // Invoke registered handlers to verify they wire through to proxy implementation
+    const dummyReq = { url: '/proxy/invalid', method: 'GET', headers: {} } as unknown as IncomingMessage
+    const writeHead = vi.fn()
+    const setHeader = vi.fn()
+    const end = vi.fn()
+    const dummyRes = { writeHead, setHeader, end, headersSent: false } as unknown as ServerResponse
+    await registeredRoutes[0]!.handler(dummyReq, dummyRes)
+    expect(end).toHaveBeenCalled()
+
+    const dummySocket = new Duplex({ read() {}, write(_chunk: unknown, _enc: unknown, cb: () => void) { cb() } })
+    await registeredUpgrades[0]!.handler(dummyReq, dummySocket, Buffer.alloc(0))
+    if (registeredFallbackUpgrade) {
+      await registeredFallbackUpgrade(dummyReq, dummySocket, Buffer.alloc(0))
+    }
+
+    await ctx.fiber.dispose()
+  })
+
+  it('registers dynamic proxy route when upgrade methods are absent on webServer', async () => {
+    stageDist()
+    const ctx = new Context()
+    type RouteItem = { kind: string; path: string; handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void> }
+    const registeredRoutes: RouteItem[] = []
+
+    const server = {
+      host: '127.0.0.1',
+      port: 4567,
+      registerFallback: () => () => {},
+      renderIndex: (html: string) => html,
+      register: (route: RouteItem) => {
+        registeredRoutes.push(route)
+        return () => {}
+      },
+    }
+    ctx.provide('webServer', server as unknown as WebServer)
+    provideConnection(ctx)
+    apply(ctx, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(registeredRoutes).toHaveLength(1)
+    await ctx.fiber.dispose()
   })
 })
