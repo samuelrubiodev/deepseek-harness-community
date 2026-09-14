@@ -203,6 +203,27 @@ describe('real Loader composition', () => {
     expect(refererGet.status).toBe(307)
     expect(refererGet.headers.get('location')).toBe('/proxy/8123/styles.css')
 
+    // Bare proxy referer without trailing slash
+    const refererBare = await fetch(`http://127.0.0.1:${String(port)}/styles.css`, {
+      headers: { referer: 'http://127.0.0.1:3080/proxy/8123' },
+      redirect: 'manual',
+    })
+    expect(refererBare.status).toBe(307)
+    expect(refererBare.headers.get('location')).toBe('/proxy/8123/styles.css')
+
+    // Referer without /proxy/ marker or with invalid port
+    const nonProxyReferer = await fetch(`http://127.0.0.1:${String(port)}/styles.css`, {
+      headers: { referer: 'http://127.0.0.1:3080/other/path' },
+      redirect: 'manual',
+    })
+    expect(nonProxyReferer.status).toBe(404)
+
+    const invalidPortReferer = await fetch(`http://127.0.0.1:${String(port)}/styles.css`, {
+      headers: { referer: 'http://127.0.0.1:3080/proxy/not-port/' },
+      redirect: 'manual',
+    })
+    expect(invalidPortReferer.status).toBe(404)
+
     const refererPost = await fetch(`http://127.0.0.1:${String(port)}/custom-endpoint`, {
       method: 'POST',
       headers: { referer: 'http://127.0.0.1:3080/proxy/8123/' },

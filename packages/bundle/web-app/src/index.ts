@@ -27,9 +27,19 @@ import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-shell-env'
-import { handleProxyRequest, PROXY_ROUTE_PREFIX } from './proxy.ts'
+import {
+  handleProxyRequest,
+  handleProxyUpgrade,
+  handleProxyUpgradeFallback,
+  PROXY_ROUTE_PREFIX,
+} from './proxy.ts'
 
-export { handleProxyRequest, PROXY_ROUTE_PREFIX } from './proxy.ts'
+export {
+  handleProxyRequest,
+  handleProxyUpgrade,
+  handleProxyUpgradeFallback,
+  PROXY_ROUTE_PREFIX,
+} from './proxy.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-app'
@@ -252,6 +262,20 @@ export function apply(ctx: Context, config: Config): void {
       path: PROXY_ROUTE_PREFIX,
       handler: (req: IncomingMessage, res: ServerResponse) => handleProxyRequest(req, res, ctx, connection),
     }), `web-app: ${PROXY_ROUTE_PREFIX}`)
+
+    if (typeof ctx.webServer.registerUpgrade === 'function') {
+      ctx.effect(() => ctx.webServer.registerUpgrade({
+        kind: 'prefix',
+        path: PROXY_ROUTE_PREFIX,
+        handler: (req, socket, head) => handleProxyUpgrade(req, socket, head, ctx, connection),
+      }), `web-app: ${PROXY_ROUTE_PREFIX} WebSocket upgrade`)
+    }
+
+    if (typeof ctx.webServer.registerFallbackUpgrade === 'function') {
+      ctx.effect(() => ctx.webServer.registerFallbackUpgrade(
+        (req, socket, head) => handleProxyUpgradeFallback(req, socket, head, ctx, connection),
+      ), 'web-app: proxy WebSocket fallback upgrade')
+    }
   }
   if (config.surfaceContext) {
     ctx.inject(['systemPrompt'], (promptCtx) => {

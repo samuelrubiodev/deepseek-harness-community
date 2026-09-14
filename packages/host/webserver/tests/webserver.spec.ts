@@ -272,6 +272,30 @@ describe('real Loader composition', () => {
     disposeUpgrade()
     expect(() => server.registerUpgrade({ path: '/events', handler: () => {} })).not.toThrow()
 
+    // Prefix upgrade routes match subpaths, reject duplicates, and dispose cleanly.
+    const disposePrefixUpgrade = server.registerUpgrade({
+      kind: 'prefix',
+      path: '/ws-prefix',
+      handler: (_req, socket) => {
+        socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: prefix-test\r\n\r\n')
+      },
+    })
+    expect(() => server.registerUpgrade({ kind: 'prefix', path: '/ws-prefix', handler: () => {} }))
+      .toThrow(/duplicate prefix upgrade route/)
+    const upgradedPrefix = await upgrade(port, '/ws-prefix/nested/channel')
+    upgradedPrefix.destroy()
+    disposePrefixUpgrade()
+
+    // Fallback upgrade handles unmatched upgrades when claimed.
+    const disposeFallbackUpgrade = server.registerFallbackUpgrade((_req, socket) => {
+      socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: fallback-test\r\n\r\n')
+    })
+    expect(() => server.registerFallbackUpgrade(() => {}))
+      .toThrow(/fallback upgrade already registered/)
+    const upgradedFallback = await upgrade(port, '/unmatched-upgrade-path')
+    upgradedFallback.destroy()
+    disposeFallbackUpgrade()
+
     // The webserver contains raw-socket errors even before an upgrade handler
     // has installed its protocol implementation.
     server.registerUpgrade({

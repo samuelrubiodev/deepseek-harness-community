@@ -42,7 +42,7 @@ kind: "package-reference"
 
 ### 注册路由
 
-`register(route)` 添加具名的 `exact`／`prefix` HTTP route，`registerUpgrade(route)` 为精确 pathname 添加 upgrade route，两者返回的 disposer 都会移除注册。同一张表内的重复路径会抛错——route 模式是组合层约定，冲突即配置错误。HTTP 匹配先在整张表中匹配精确 route，再匹配最长前缀，最后交给回退 handler；upgrade 只做精确匹配，未命中连接直接关闭。
+`register(route)` 添加具名的 `exact`／`prefix` HTTP route，`registerUpgrade(route)` 添加 `exact`／`prefix` upgrade route，两者返回的 disposer 都会移除注册。同一张表内的重复路径会抛错——route 模式是组合层约定，冲突即配置错误。HTTP 匹配先在整张表中匹配精确 route，再匹配最长前缀，最后交给回退 handler；upgrade 先精确匹配再最长前缀匹配，最后交给 `registerFallbackUpgrade`（若已认领）或关闭连接。
 
 ### 回退席位
 

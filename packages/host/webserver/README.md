@@ -42,7 +42,7 @@ Set `compression: 'gzip'` to wrap eligible socket-backed responses without chang
 
 ### Registering routes
 
-`register(route)` adds a named `exact` or `prefix` HTTP route, `registerUpgrade(route)` adds an upgrade route for an exact pathname, and both return a disposer that removes the registration. A duplicate path within either table throws — route patterns are a composition-level contract, so a collision is a misconfiguration. HTTP matching is exact over the whole table, then longest prefix, then the fallback handler; upgrades match exactly and unmatched connections are closed.
+`register(route)` adds a named `exact` or `prefix` HTTP route, `registerUpgrade(route)` adds an `exact` or `prefix` upgrade route, and both return a disposer that removes the registration. A duplicate path within either table throws — route patterns are a composition-level contract, so a collision is a misconfiguration. HTTP matching is exact over the whole table, then longest prefix, then the fallback handler; upgrades match exact then longest prefix, falling back to `registerFallbackUpgrade` if claimed or closing the connection.
 
 ### The fallback seat
 

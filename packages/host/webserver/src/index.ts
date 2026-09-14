@@ -47,8 +47,10 @@ export interface WebRoute {
   handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>
 }
 
-/** One exact-path HTTP upgrade registration. */
+/** One exact-path or prefix HTTP upgrade registration. */
 export interface WebUpgradeRoute {
+  /** Route match kind: 'exact' matches the pathname verbatim; 'prefix' p matches p and p/<anything>. @default 'exact' */
+  kind?: WebRouteKind
   /** Absolute pathname, no trailing slash. */
   path: string
   /** Owns protocol negotiation and the upgraded socket after dispatch. */
@@ -132,10 +134,12 @@ export class WebServer extends Service {
 
   private readonly exact = new Map<string, WebRoute>()
   private readonly prefixes = new Map<string, WebRoute>()
-  private readonly upgrades = new Map<string, WebUpgradeRoute>()
+  private readonly exactUpgrades = new Map<string, WebUpgradeRoute>()
+  private readonly prefixUpgrades = new Map<string, WebUpgradeRoute>()
   private readonly upgradedSockets = new Set<Duplex>()
   private readonly indexTaps: ((html: string) => string)[] = []
   private fallback: WebRoute['handler'] | undefined
+  private fallbackUpgrade: WebUpgradeRoute['handler'] | undefined
   private server!: Server
   private listenedPort!: number
   private readonly gzip: NodeMiddleware | undefined
@@ -172,17 +176,33 @@ export class WebServer extends Service {
   }
 
   /**
-   * Register an exact-path HTTP upgrade route. Duplicate paths throw because
+   * Register an HTTP upgrade route. Duplicate (kind, path) throws because
    * one socket can have only one protocol owner.
-   * @param route - pathname and handler owning negotiation plus socket use.
+   * @param route - kind, pathname, and handler owning negotiation plus socket use.
    * @returns the disposer removing the route.
    */
   registerUpgrade(route: WebUpgradeRoute): () => void {
-    if (this.upgrades.has(route.path)) {
-      throw new Error(`webserver: duplicate upgrade route "${route.path}"`)
+    const kind = route.kind ?? 'exact'
+    const table = kind === 'exact' ? this.exactUpgrades : this.prefixUpgrades
+    if (table.has(route.path)) {
+      throw new Error(`webserver: duplicate ${kind === 'exact' ? '' : `${kind} `}upgrade route "${route.path}"`)
     }
-    this.upgrades.set(route.path, route)
-    return () => { this.upgrades.delete(route.path) }
+    table.set(route.path, route)
+    return () => { table.delete(route.path) }
+  }
+
+  /**
+   * Claim the fallback upgrade seat: the handler answering every upgrade request
+   * no named upgrade route matches. One owner only — a second registration throws.
+   * @param handler - owns protocol negotiation and socket lifecycle for unmatched upgrades.
+   * @returns the disposer releasing the seat.
+   */
+  registerFallbackUpgrade(handler: WebUpgradeRoute['handler']): () => void {
+    if (this.fallbackUpgrade !== undefined) {
+      throw new Error('webserver: fallback upgrade already registered')
+    }
+    this.fallbackUpgrade = handler
+    return () => { this.fallbackUpgrade = undefined }
   }
 
   /**
@@ -267,19 +287,20 @@ export class WebServer extends Service {
       let route: WebUpgradeRoute | undefined
       try {
         /* v8 ignore next -- node:http always sets url on server requests. */
-        route = this.upgrades.get(new URL(req.url ?? '/', 'http://x').pathname)
+        route = this.matchUpgrade(new URL(req.url ?? '/', 'http://x').pathname)
       } catch (error) {
         this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
         socket.destroy()
         return
       }
-      if (route === undefined) {
+      const handler = route?.handler ?? this.fallbackUpgrade
+      if (handler === undefined) {
         socket.destroy()
         return
       }
       this.upgradedSockets.add(socket)
       try {
-        Promise.resolve(route.handler(req, socket, head)).catch((error: unknown) => {
+        Promise.resolve(handler(req, socket, head)).catch((error: unknown) => {
           this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
           socket.destroy()
         })
@@ -314,16 +335,15 @@ export class WebServer extends Service {
     }, 'webServer.listen')
   }
 
+
   /** Longest-prefix-wins over the prefix table after an exact-table miss. */
   private match(pathname: string): WebRoute | undefined {
-    const exact = this.exact.get(pathname)
-    if (exact !== undefined) return exact
-    let best: WebRoute | undefined
-    for (const [prefix, route] of this.prefixes) {
-      if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) continue
-      if (best === undefined || prefix.length > best.path.length) best = route
-    }
-    return best
+    return this.exact.get(pathname) ?? matchPrefixTable(this.prefixes, pathname)
+  }
+
+  /** Longest-prefix-wins over the prefix upgrade table after an exact-table miss. */
+  private matchUpgrade(pathname: string): WebUpgradeRoute | undefined {
+    return this.exactUpgrades.get(pathname) ?? matchPrefixTable(this.prefixUpgrades, pathname)
   }
 
   /**
@@ -359,6 +379,15 @@ export class WebServer extends Service {
   renderIndex(html: string): string {
     return this.applyIndexTaps(renderIndexInjections(html, this.collectIndexInjections()))
   }
+}
+
+function matchPrefixTable<T extends { path: string }>(table: Map<string, T>, pathname: string): T | undefined {
+  let best: T | undefined
+  for (const [prefix, route] of table) {
+    if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) continue
+    if (best === undefined || prefix.length > best.path.length) best = route
+  }
+  return best
 }
 
 export default WebServer

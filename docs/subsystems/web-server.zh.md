@@ -76,12 +76,20 @@ The browser HTTP carrier service. Activation listens immediately. Route registra
 register(route: WebRoute): () => void
 
 /**
- * Register an exact-path HTTP upgrade route. Duplicate paths throw because
+ * Register an HTTP upgrade route. Duplicate (kind, path) throws because
  * one socket can have only one protocol owner.
- * @param route - pathname and handler owning negotiation plus socket use.
+ * @param route - kind, pathname, and handler owning negotiation plus socket use.
  * @returns the disposer removing the route.
  */
 registerUpgrade(route: WebUpgradeRoute): () => void
+
+/**
+ * Claim the fallback upgrade seat: the handler answering every upgrade request
+ * no named upgrade route matches. One owner only — a second registration throws.
+ * @param handler - owns protocol negotiation and socket lifecycle for unmatched upgrades.
+ * @returns the disposer releasing the seat.
+ */
+registerFallbackUpgrade(handler: WebUpgradeRoute['handler']): () => void
 
 /**
  * Claim the fallback seat: the handler answering every request no named
