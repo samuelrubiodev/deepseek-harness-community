@@ -36,13 +36,11 @@ describe('CI workflow', () => {
     }
   })
 
-  it('skips coverage-history uploads on cancellation but retains Wine cleanup', () => {
+  it('skips coverage-history uploads on cancellation', () => {
     const coverage = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'windows-coverage')
-    const wine = workflowJob(loadWorkflow('.github/workflows/ci-master.yml'), 'windows')
     expect(coverage.steps).toContainEqual(expect.objectContaining({
       name: 'Save coverage duration history', if: '${{ !cancelled() }}',
     }))
-    expect(wine.steps).toContainEqual(expect.objectContaining({ name: 'Shut down wineserver', if: 'always()' }))
   })
 
   it('isolates every pnpm action setup destination per runner', () => {

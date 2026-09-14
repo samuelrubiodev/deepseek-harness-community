@@ -50,6 +50,7 @@ describe('initializeProfileFromDefault', () => {
         expect(manifest).toEqual({
           name: 'dsh-profile-custom',
           private: true,
+          packageManager: 'pnpm@11.7.0',
           dependencies: {},
           dsh: { profile: { bundles: [...template.bundles], patchReload: template.patchReload } },
         })
