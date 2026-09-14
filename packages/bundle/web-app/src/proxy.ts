@@ -12,6 +12,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import http from 'node:http'
+import type { Duplex } from 'node:stream'
 import type { Context } from '@deepseek-ai/cordis'
 
 /** Trust surface consumed here; the browser-side connection package owns the full type. */
@@ -56,7 +57,16 @@ function rewriteLocation(location: string, port: number): string {
     return `${PROXY_ROUTE_PREFIX}/${String(port)}${location}`
   }
   return location
+}function onceCompleter(done: () => void): () => void {
+  let finished = false
+  return (): void => {
+    if (!finished) {
+      finished = true
+      done()
+    }
+  }
 }
+
 
 /**
  * Rewrite HTML content from proxied dev servers so that root-relative asset URLs,
@@ -91,6 +101,62 @@ export function rewriteHtml(html: string, port: number): string {
       }
       return origOpen.call(this, method, url, ...args);
     };
+  }
+  if (typeof WebSocket !== 'undefined') {
+    const OrigWebSocket = window.WebSocket;
+    class ProxiedWebSocket extends OrigWebSocket {
+      constructor(url, protocols) {
+        let targetUrl = url;
+        try {
+          const parsed = new URL(targetUrl, window.location.href);
+          const isSameHost = parsed.host === window.location.host;
+          const isLoopbackTarget = (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
+            && (parsed.port === '${String(port)}' || parsed.port === '');
+          if (isSameHost && !parsed.pathname.startsWith(base)) {
+            parsed.pathname = base + (parsed.pathname.startsWith('/') ? parsed.pathname : '/' + parsed.pathname);
+            targetUrl = parsed.toString();
+          } else if (isLoopbackTarget) {
+            parsed.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            parsed.host = window.location.host;
+            if (!parsed.pathname.startsWith(base)) {
+              parsed.pathname = base + (parsed.pathname.startsWith('/') ? parsed.pathname : '/' + parsed.pathname);
+            }
+            targetUrl = parsed.toString();
+          }
+        } catch {}
+        if (protocols !== undefined) {
+          super(targetUrl, protocols);
+        } else {
+          super(targetUrl);
+        }
+      }
+    }
+    window.WebSocket = ProxiedWebSocket;
+  }
+  if (typeof EventSource !== 'undefined') {
+    const OrigEventSource = window.EventSource;
+    class ProxiedEventSource extends OrigEventSource {
+      constructor(url, eventSourceInitDict) {
+        let targetUrl = url;
+        try {
+          if (typeof targetUrl === 'string' && targetUrl.startsWith('/') && !targetUrl.startsWith('/proxy/')) {
+            targetUrl = base + targetUrl;
+          } else {
+            const parsed = new URL(targetUrl, window.location.href);
+            if (parsed.host === window.location.host && !parsed.pathname.startsWith(base)) {
+              parsed.pathname = base + (parsed.pathname.startsWith('/') ? parsed.pathname : '/' + parsed.pathname);
+              targetUrl = parsed.toString();
+            }
+          }
+        } catch {}
+        if (eventSourceInitDict !== undefined) {
+          super(targetUrl, eventSourceInitDict);
+        } else {
+          super(targetUrl);
+        }
+      }
+    }
+    window.EventSource = ProxiedEventSource;
   }
 })();
 </script>`
@@ -234,13 +300,7 @@ export async function handleProxyRequest(
     }
 
     await new Promise<void>((resolve) => {
-      let resolved = false
-      const finish = (): void => {
-        if (!resolved) {
-          resolved = true
-          resolve()
-        }
-      }
+      const finish = onceCompleter(resolve)
 
       const targetReq = http.request({
         hostname: '127.0.0.1',
@@ -340,4 +400,233 @@ export async function handleProxyRequest(
       res.destroy()
     }
   }
+}
+
+/**
+ * Extract proxy target port from Referer header URL if present.
+ *
+ * @param referer - Optional Referer header string.
+ * @returns Port number if referer contains a valid /proxy/<port>/ path, undefined otherwise.
+ */
+export function proxyPortFromReferer(referer: string | undefined): number | undefined {
+  if (referer === undefined) return undefined
+  try {
+    const url = new URL(referer)
+    const match = /^\/proxy\/(\d+)(?:\/.*)?$/u.exec(url.pathname)
+    if (match?.[1] !== undefined) {
+      const port = parseInt(match[1], 10)
+      if (!Number.isNaN(port) && port >= 1 && port <= 65535) {
+        return port
+      }
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
+/**
+ * Handle incoming dynamic proxy WebSocket upgrade requests on `/proxy/:port/*`.
+ *
+ * @param req - The incoming HTTP upgrade request.
+ * @param socket - The network duplex socket of the upgrade.
+ * @param head - Initial bytes read from the socket.
+ * @param ctx - The Cordis context carrying webServer and connection services.
+ * @param explicitConnection - Optional resolved ProxyConnection instance from inject.
+ * @param overridePort - Optional port to forward to (used by fallback Referer routing).
+ * @returns A promise resolving when the upgrade handling completes or sets up piping.
+ */
+export async function handleProxyUpgrade(
+  req: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+  ctx: Context,
+  explicitConnection?: ProxyConnection,
+  overridePort?: number,
+): Promise<void> {
+  try {
+    // 1. Connection security / authentication fence
+    const conn = explicitConnection ?? connectionOf(ctx)
+    if (conn !== undefined) {
+      try {
+        const rejection = conn.requestRejection(req)
+        if (rejection !== undefined) {
+          socket.write(`HTTP/1.1 ${String(rejection)} ${rejection === 401 ? 'Unauthorized' : 'Forbidden'}\r\n\r\n`)
+          socket.destroy()
+          return
+        }
+      } catch {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n')
+        socket.destroy()
+        return
+      }
+    }
+
+    // 2. Parse URL and extract port
+    let fullUrl: URL
+    try {
+      fullUrl = new URL(req.url ?? '/', 'http://127.0.0.1')
+    } catch {
+      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
+    const pathname = fullUrl.pathname
+    const search = fullUrl.search
+    let port = overridePort
+    let targetPath = pathname + search
+
+    if (port === undefined) {
+      const match = /^\/proxy\/(\d+)(\/.*)?$/u.exec(pathname)
+      if (match && match[1] !== undefined) {
+        port = parseInt(match[1], 10)
+        const rest = match[2] ?? '/'
+        targetPath = rest + search
+      } else {
+        const referer = req.headers.referer
+        if (typeof referer === 'string') {
+          port = proxyPortFromReferer(referer)
+        }
+      }
+    }
+
+    if (port === undefined || Number.isNaN(port) || port < 1 || port > 65535) {
+      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
+    // Prevent proxy loop to webServer itself
+    const webServerPort = (ctx as unknown as { webServer?: { port?: number } }).webServer?.port
+    if (webServerPort !== undefined && port === webServerPort) {
+      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
+    // 3. Forward to 127.0.0.1:port
+    const forwardHeaders: http.OutgoingHttpHeaders = {}
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value === undefined) continue
+      forwardHeaders[key] = value
+    }
+    forwardHeaders.host = `127.0.0.1:${String(port)}`
+    forwardHeaders['x-forwarded-host'] = req.headers.host ?? `127.0.0.1:${String(webServerPort ?? 3080)}`
+    forwardHeaders['x-forwarded-proto'] = 'http'
+    if (req.headers.origin !== undefined) {
+      forwardHeaders.origin = `http://127.0.0.1:${String(port)}`
+    }
+    if (req.socket.remoteAddress) {
+      forwardHeaders['x-forwarded-for'] = req.socket.remoteAddress
+    }
+
+    await new Promise<void>((resolve) => {
+      const finish = onceCompleter(resolve)
+
+      const targetReq = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: targetPath,
+        method: req.method ?? 'GET',
+        headers: forwardHeaders,
+      })
+
+      targetReq.on('upgrade', (targetRes, targetSocket, targetHead) => {
+        const statusLine = `HTTP/1.1 ${String(targetRes.statusCode ?? 101)} ${targetRes.statusMessage ?? 'Switching Protocols'}\r\n`
+        let headersStr = ''
+        for (let i = 0; i < targetRes.rawHeaders.length; i += 2) {
+          headersStr += `${targetRes.rawHeaders[i]}: ${targetRes.rawHeaders[i + 1]}\r\n`
+        }
+        socket.write(`${statusLine}${headersStr}\r\n`)
+
+        if (targetHead.length > 0) {
+          socket.write(targetHead)
+        }
+        if (head.length > 0) {
+          targetSocket.write(head)
+        }
+
+        targetSocket.pipe(socket)
+        socket.pipe(targetSocket)
+
+        const cleanup = (): void => {
+          targetSocket.destroy()
+          socket.destroy()
+        }
+        targetSocket.once('error', cleanup)
+        socket.once('error', cleanup)
+        targetSocket.once('close', cleanup)
+        socket.once('close', cleanup)
+        targetSocket.once('end', cleanup)
+        socket.once('end', cleanup)
+        finish()
+      })
+
+      targetReq.on('response', (targetRes) => {
+        if (!socket.destroyed) {
+          const statusLine = `HTTP/1.1 ${String(targetRes.statusCode ?? 502)} ${targetRes.statusMessage ?? ''}\r\n`
+          let headersStr = ''
+          for (let i = 0; i < targetRes.rawHeaders.length; i += 2) {
+            headersStr += `${targetRes.rawHeaders[i]}: ${targetRes.rawHeaders[i + 1]}\r\n`
+          }
+          socket.write(`${statusLine}${headersStr}\r\n`)
+          targetRes.pipe(socket)
+          targetRes.on('end', finish)
+        } else {
+          finish()
+        }
+      })
+
+      targetReq.on('error', () => {
+        if (!socket.destroyed) {
+          socket.write('HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n')
+          socket.destroy()
+        }
+        finish()
+      })
+
+      const onClientClose = (): void => {
+        targetReq.destroy()
+        finish()
+      }
+      socket.once('close', onClientClose)
+      socket.once('error', onClientClose)
+
+      targetReq.end()
+    })
+  } catch {
+    if (!socket.destroyed) {
+      socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
+      socket.destroy()
+    }
+  }
+}
+
+/**
+ * Handle unmatched WebSocket upgrade requests by inspecting the Referer header.
+ *
+ * @param req - The incoming HTTP upgrade request.
+ * @param socket - The network duplex socket of the upgrade.
+ * @param head - Initial bytes read from the socket.
+ * @param ctx - The Cordis context.
+ * @param explicitConnection - Optional resolved ProxyConnection instance.
+ * @returns A promise resolving when handled or socket destroyed.
+ */
+export async function handleProxyUpgradeFallback(
+  req: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+  ctx: Context,
+  explicitConnection?: ProxyConnection,
+): Promise<void> {
+  const referer = req.headers.referer
+  if (typeof referer === 'string') {
+    const port = proxyPortFromReferer(referer)
+    if (port !== undefined) {
+      await handleProxyUpgrade(req, socket, head, ctx, explicitConnection, port)
+      return
+    }
+  }
+  socket.destroy()
 }

@@ -1,15 +1,29 @@
 import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import { connect, type AddressInfo, type Socket } from 'node:net'
+import { once } from 'node:events'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { handleProxyRequest, PROXY_ROUTE_PREFIX, rewriteHtml } from '../src/proxy.ts'
+import {
+  handleProxyRequest,
+  handleProxyUpgrade,
+  handleProxyUpgradeFallback,
+  proxyPortFromReferer,
+  PROXY_ROUTE_PREFIX,
+  rewriteHtml,
+} from '../src/proxy.ts'
 
 describe('dynamic port proxy', () => {
   const serversToClose: Server[] = []
+  const socketsToDestroy: Socket[] = []
 
   afterEach(async () => {
+    while (socketsToDestroy.length > 0) {
+      const sock = socketsToDestroy.pop()
+      sock?.destroy()
+    }
     while (serversToClose.length > 0) {
       const s = serversToClose.pop()
+      s?.closeAllConnections?.()
       await new Promise<void>((resolve) => {
         s?.close(() => {
           resolve()
@@ -18,10 +32,21 @@ describe('dynamic port proxy', () => {
     }
   })
 
-  async function createProxyServer(ctx: Context): Promise<number> {
+  async function createProxyServer(ctx: Context, upgradeMode?: 'normal' | 'fallback'): Promise<number> {
     const server = createServer((req, res) => {
       void handleProxyRequest(req, res, ctx)
     })
+    if (upgradeMode === 'normal') {
+      server.on('upgrade', (req, socket, head) => {
+        socketsToDestroy.push(socket as Socket)
+        void handleProxyUpgrade(req, socket, head, ctx)
+      })
+    } else if (upgradeMode === 'fallback') {
+      server.on('upgrade', (req, socket, head) => {
+        socketsToDestroy.push(socket as Socket)
+        void handleProxyUpgradeFallback(req, socket, head, ctx)
+      })
+    }
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', () => {
         resolve()
@@ -29,6 +54,31 @@ describe('dynamic port proxy', () => {
     })
     serversToClose.push(server)
     return (server.address() as AddressInfo).port
+  }
+
+  async function rawUpgrade(
+    port: number,
+    path: string,
+    headers: Record<string, string> = {},
+  ): Promise<{ socket: Socket; responseText: string }> {
+    const socket = connect(port, '127.0.0.1')
+    socketsToDestroy.push(socket)
+    await once(socket, 'connect')
+    const headerLines = [
+      `GET ${path} HTTP/1.1`,
+      `Host: 127.0.0.1:${String(port)}`,
+      'Connection: Upgrade',
+      'Upgrade: websocket',
+      'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
+      'Sec-WebSocket-Version: 13',
+    ]
+    for (const [key, val] of Object.entries(headers)) {
+      headerLines.push(`${key}: ${val}`)
+    }
+    headerLines.push('', '')
+    socket.write(headerLines.join('\r\n'))
+    const chunk = (await once(socket, 'data'))[0] as Buffer
+    return { socket, responseText: chunk.toString('utf8') }
   }
 
   function createMockCtx(webServerPort = 3080, rejection?: 401 | 403): Context {
@@ -386,5 +436,143 @@ describe('dynamic port proxy', () => {
     expect(html).toContain(`/proxy/${String(targetPort)}/styles.css`)
     expect(html).toContain(`/proxy/${String(targetPort)}/main.js`)
     expect(html).toContain(`<base href="/proxy/${String(targetPort)}/">`)
+  })
+
+  it('extracts proxy target port from Referer header with proxyPortFromReferer', () => {
+    expect(proxyPortFromReferer('http://deepseek.lan/proxy/8123/')).toBe(8123)
+    expect(proxyPortFromReferer('http://deepseek.lan/proxy/5173/nested/path?token=abc')).toBe(5173)
+    expect(proxyPortFromReferer('http://deepseek.lan/proxy/99999/')).toBeUndefined()
+    expect(proxyPortFromReferer('http://deepseek.lan/about')).toBeUndefined()
+    expect(proxyPortFromReferer(undefined)).toBeUndefined()
+    expect(proxyPortFromReferer('not-a-valid-url')).toBeUndefined()
+  })
+
+  it('client shim patches WebSocket and EventSource to preserve proxy path', () => {
+    const html = rewriteHtml('<html><head></head><body></body></html>', 5173)
+    expect(html).toContain('class ProxiedWebSocket extends OrigWebSocket')
+    expect(html).toContain('class ProxiedEventSource extends OrigEventSource')
+    expect(html).toContain("const base = '/proxy/5173';")
+  })
+
+  it('proxies WebSocket upgrade requests to target dev server', async () => {
+    let receivedUpgradePath = ''
+    let serverSocketEchoed = false
+
+    const targetServer = createServer()
+    targetServer.on('upgrade', (req, socket) => {
+      socketsToDestroy.push(socket as Socket)
+      receivedUpgradePath = req.url ?? ''
+      socket.write([
+        'HTTP/1.1 101 Switching Protocols',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        'Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=',
+        '',
+        '',
+      ].join('\r\n'))
+      socket.on('data', (data: Buffer) => {
+        if (data.toString('utf8').includes('ping-from-client')) {
+          serverSocketEchoed = true
+          socket.write('pong-from-server')
+        }
+      })
+    })
+
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    const { socket: clientSocket, responseText } = await rawUpgrade(
+      proxyPort,
+      `/proxy/${String(targetPort)}/?token=hmr-token`,
+    )
+    expect(responseText).toContain('101 Switching Protocols')
+    expect(receivedUpgradePath).toBe('/?token=hmr-token')
+
+    // Test bidirectional data flow
+    const receivedDataPromise = once(clientSocket, 'data')
+    clientSocket.write('ping-from-client')
+    const [pongData] = (await receivedDataPromise) as [Buffer]
+    expect(serverSocketEchoed).toBe(true)
+    expect(pongData.toString('utf8')).toBe('pong-from-server')
+    clientSocket.destroy()
+  })
+
+  it('rejects WebSocket upgrades when connection trust fence fails', async () => {
+    const ctx = createMockCtx(3080, 403)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    const { socket, responseText } = await rawUpgrade(proxyPort, '/proxy/5173/')
+    expect(responseText).toContain('HTTP/1.1 403 Forbidden')
+    socket.destroy()
+  })
+
+  it('rejects WebSocket upgrades with invalid ports or webServer loops', async () => {
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    const { socket: sock1, responseText: res1 } = await rawUpgrade(proxyPort, '/proxy/notaport/')
+    expect(res1).toContain('HTTP/1.1 400 Bad Request')
+    sock1.destroy()
+
+    const { socket: sock2, responseText: res2 } = await rawUpgrade(proxyPort, '/proxy/3080/')
+    expect(res2).toContain('HTTP/1.1 400 Bad Request')
+    sock2.destroy()
+  })
+
+  it('returns 502 Bad Gateway when upgrade target port is unreachable', async () => {
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    // 65530 is unlikely to be listening
+    const { socket, responseText } = await rawUpgrade(proxyPort, '/proxy/65530/')
+    expect(responseText).toContain('HTTP/1.1 502 Bad Gateway')
+    socket.destroy()
+  })
+
+  it('proxies fallback WebSocket upgrades via Referer header', async () => {
+    let receivedUpgradePath = ''
+
+    const targetServer = createServer()
+    targetServer.on('upgrade', (req, socket) => {
+      socketsToDestroy.push(socket as Socket)
+      receivedUpgradePath = req.url ?? ''
+      socket.write([
+        'HTTP/1.1 101 Switching Protocols',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        'Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=',
+        '',
+        '',
+      ].join('\r\n'))
+    })
+
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'fallback')
+
+    // Client connects to /?token=vite-token directly, but sends Referer with /proxy/<targetPort>/
+    const { socket, responseText } = await rawUpgrade(
+      proxyPort,
+      '/?token=vite-token',
+      { Referer: `http://deepseek.lan/proxy/${String(targetPort)}/` },
+    )
+    expect(responseText).toContain('101 Switching Protocols')
+    expect(receivedUpgradePath).toBe('/?token=vite-token')
+    socket.destroy()
   })
 })
