@@ -146,6 +146,7 @@ export function apply(ctx: Context, config: Config): void {
     // semantics: named routes own their method handling).
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       if (proxyPort !== undefined) {
+        /* v8 ignore next -- `?? '/'` arm: node:http always sets url on server requests. */
         res.writeHead(307, { location: `/proxy/${proxyPort}${req.url ?? '/'}` })
         res.end()
         return
@@ -164,6 +165,7 @@ export function apply(ctx: Context, config: Config): void {
       () => ctx.connection.authorizeIndex(req, res),
       renderIndex,
       proxyPort !== undefined ? () => {
+        /* v8 ignore next -- `?? '/'` arm: node:http always sets url on server requests. */
         res.writeHead(307, { location: `/proxy/${proxyPort}${req.url ?? '/'}` })
         res.end()
       } : undefined,

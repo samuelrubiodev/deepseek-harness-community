@@ -1,5 +1,6 @@
-import { createServer, type Server } from 'node:http'
-import { connect, type AddressInfo, type Socket } from 'node:net'
+import { createServer, IncomingMessage, type Server } from 'node:http'
+import { Duplex } from 'node:stream'
+import { connect, Socket, type AddressInfo } from 'node:net'
 import { once } from 'node:events'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -38,12 +39,10 @@ describe('dynamic port proxy', () => {
     })
     if (upgradeMode === 'normal') {
       server.on('upgrade', (req, socket, head) => {
-        socketsToDestroy.push(socket as Socket)
         void handleProxyUpgrade(req, socket, head, ctx)
       })
     } else if (upgradeMode === 'fallback') {
       server.on('upgrade', (req, socket, head) => {
-        socketsToDestroy.push(socket as Socket)
         void handleProxyUpgradeFallback(req, socket, head, ctx)
       })
     }
@@ -67,6 +66,7 @@ describe('dynamic port proxy', () => {
     const headerLines = [
       `GET ${path} HTTP/1.1`,
       `Host: 127.0.0.1:${String(port)}`,
+      'Origin: http://deepseek.lan',
       'Connection: Upgrade',
       'Upgrade: websocket',
       'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
@@ -77,8 +77,18 @@ describe('dynamic port proxy', () => {
     }
     headerLines.push('', '')
     socket.write(headerLines.join('\r\n'))
-    const chunk = (await once(socket, 'data'))[0] as Buffer
-    return { socket, responseText: chunk.toString('utf8') }
+    const chunk = await new Promise<string>((resolve) => {
+      socket.once('data', (buf: Buffer) => {
+        resolve(buf.toString('utf8'))
+      })
+      socket.once('close', () => {
+        resolve('')
+      })
+      socket.once('end', () => {
+        resolve('')
+      })
+    })
+    return { socket, responseText: chunk }
   }
 
   function createMockCtx(webServerPort = 3080, rejection?: 401 | 403): Context {
@@ -408,14 +418,21 @@ describe('dynamic port proxy', () => {
     expect(outputHtml).toContain('href="/proxy/8123/existing"')
     expect(outputHtml).not.toContain('/proxy/8123/proxy/8123/')
     expect(outputHtml).toContain("const base = '/proxy/8123';")
+
+    const baseHtml = '<html><head><base href="/"></head><body><script>import x from \'/lib/x.js\'</script></body></html>'
+    const outputBase = rewriteHtml(baseHtml, 8123)
+    expect(outputBase).toContain('<base href="/proxy/8123/">')
+    expect(outputBase).toContain("from '/proxy/8123/lib/x.js'")
   })
 
   it('proxies HTML responses, buffering and rewriting root-relative asset paths', async () => {
+    const htmlBody = '<html><head><title>App</title><link rel="stylesheet" href="/styles.css"></head><body><script src="/main.js"></script></body></html>'
     const targetServer = createServer((_req, res) => {
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
+        'content-length': String(Buffer.byteLength(htmlBody)),
       })
-      res.end('<html><head><title>App</title><link rel="stylesheet" href="/styles.css"></head><body><script src="/main.js"></script></body></html>')
+      res.end(htmlBody)
     })
 
     await new Promise<void>((resolve) => {
@@ -573,6 +590,214 @@ describe('dynamic port proxy', () => {
     )
     expect(responseText).toContain('101 Switching Protocols')
     expect(receivedUpgradePath).toBe('/?token=vite-token')
+    socket.destroy()
+  })
+
+  it('destroys socket on fallback WebSocket upgrade without valid proxy Referer', async () => {
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'fallback')
+
+    const { responseText } = await rawUpgrade(proxyPort, '/unmatched-ws')
+    expect(responseText).toBe('')
+
+    const { responseText: res2 } = await rawUpgrade(proxyPort, '/unmatched-ws', { Referer: 'http://deepseek.lan/about' })
+    expect(res2).toBe('')
+  })
+
+  it('forwards standard HTTP response when target dev server rejects WebSocket upgrade', async () => {
+    const targetServer = createServer((_req, res) => {
+      res.writeHead(404, { 'content-type': 'text/plain' })
+      res.end('Not found')
+    })
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    const { socket, responseText } = await rawUpgrade(proxyPort, `/proxy/${String(targetPort)}/`)
+    expect(responseText).toContain('HTTP/1.1 404')
+    expect(responseText).toContain('Not found')
+    socket.destroy()
+  })
+
+  it('buffers and flushes initial head bytes in WebSocket upgrades', async () => {
+    const targetServer = createServer()
+    targetServer.on('upgrade', (_req, socket) => {
+      socketsToDestroy.push(socket as Socket)
+      socket.write([
+        'HTTP/1.1 101 Switching Protocols',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        'Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=',
+        '',
+        'initial-target-bytes',
+      ].join('\r\n'))
+      socket.on('data', (data: Buffer) => {
+        socket.write(`echo:${data.toString('utf8')}`)
+      })
+    })
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const clientReq = new IncomingMessage(new Socket())
+    clientReq.url = `/proxy/${String(targetPort)}/`
+    clientReq.headers = { host: 'deepseek.lan', upgrade: 'websocket', connection: 'Upgrade' }
+
+    const written: Buffer[] = []
+    const clientSocket = new Duplex({
+      read() {},
+      write(chunk: unknown, _enc: unknown, cb: () => void) {
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+        cb()
+      },
+    })
+    socketsToDestroy.push(clientSocket as unknown as Socket)
+
+    await handleProxyUpgrade(clientReq, clientSocket, Buffer.from('client-head-bytes'), ctx)
+    await new Promise(r => setTimeout(r, 50))
+    const total = Buffer.concat(written).toString('utf8')
+    expect(total).toContain('101 Switching Protocols')
+    expect(total).toContain('initial-target-bytes')
+    expect(total).toContain('echo:client-head-bytes')
+    clientSocket.destroy()
+  })
+
+  it('handles upgrade errors when trust evaluation throws', async () => {
+    const ctx = new Context()
+    Reflect.set(ctx, 'connection', {
+      requestRejection: () => {
+        throw new Error('trust check exploded')
+      },
+    })
+    const clientReq = new IncomingMessage(new Socket())
+    clientReq.url = '/proxy/5173/'
+    clientReq.headers = { host: 'deepseek.lan', upgrade: 'websocket', connection: 'Upgrade' }
+
+    const written: Buffer[] = []
+    const clientSocket = new Duplex({
+      read() {},
+      write(chunk: unknown, _enc: unknown, cb: () => void) {
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+        cb()
+      },
+    })
+    await handleProxyUpgrade(clientReq, clientSocket, Buffer.alloc(0), ctx)
+    const res = Buffer.concat(written).toString('utf8')
+    expect(res).toContain('HTTP/1.1 403 Forbidden')
+  })
+
+  it('handles upgrade errors when request URL is malformed', async () => {
+    const ctx = createMockCtx(3080)
+    const clientReq = new IncomingMessage(new Socket())
+    clientReq.url = 'http://[invalid-url'
+    clientReq.headers = { host: 'deepseek.lan', upgrade: 'websocket', connection: 'Upgrade' }
+
+    const written: Buffer[] = []
+    const clientSocket = new Duplex({
+      read() {},
+      write(chunk: unknown, _enc: unknown, cb: () => void) {
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+        cb()
+      },
+    })
+    await handleProxyUpgrade(clientReq, clientSocket, Buffer.alloc(0), ctx)
+    const res = Buffer.concat(written).toString('utf8')
+    expect(res).toContain('HTTP/1.1 400 Bad Request')
+  })
+
+  it('finishes safely when client socket is destroyed before target server responds to upgrade', async () => {
+    const targetServer = createServer((_req, res) => {
+      setTimeout(() => {
+        res.writeHead(200)
+        res.end()
+      }, 50)
+    })
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const clientReq = new IncomingMessage(new Socket())
+    clientReq.url = `/proxy/${String(targetPort)}/`
+    clientReq.headers = { host: 'deepseek.lan', upgrade: 'websocket', connection: 'Upgrade' }
+
+    const clientSocket = new Duplex({
+      read() {},
+      write(_chunk: unknown, _enc: unknown, cb: () => void) {
+        cb()
+      },
+    })
+    // Immediately destroy the client socket
+    clientSocket.destroy()
+
+    await handleProxyUpgrade(clientReq, clientSocket, Buffer.alloc(0), ctx)
+    await new Promise(r => setTimeout(r, 100))
+  })
+
+  it('handles HEAD requests through proxy', async () => {
+    const targetServer = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' })
+      res.end()
+    })
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx)
+
+    const res = await fetch(`http://127.0.0.1:${String(proxyPort)}/proxy/${String(targetPort)}/`, { method: 'HEAD' })
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects WebSocket upgrades with 401 Unauthorized when unauthenticated', async () => {
+    const ctx = createMockCtx(3080, 401)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    const { socket, responseText } = await rawUpgrade(proxyPort, '/proxy/5173/')
+    expect(responseText).toContain('HTTP/1.1 401 Unauthorized')
+    socket.destroy()
+  })
+
+  it('handles bare /proxy/:port without trailing slash in upgrade', async () => {
+    const targetServer = createServer()
+    targetServer.on('upgrade', (_req, socket) => {
+      socketsToDestroy.push(socket as Socket)
+      socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n')
+    })
+    await new Promise<void>((resolve) => {
+      targetServer.listen(0, '127.0.0.1', () => {
+        resolve()
+      })
+    })
+    serversToClose.push(targetServer)
+    const targetPort = (targetServer.address() as AddressInfo).port
+
+    const ctx = createMockCtx(3080)
+    const proxyPort = await createProxyServer(ctx, 'normal')
+
+    const { socket, responseText } = await rawUpgrade(proxyPort, `/proxy/${String(targetPort)}`)
+    expect(responseText).toContain('101 Switching Protocols')
     socket.destroy()
   })
 })
