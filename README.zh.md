@@ -181,6 +181,18 @@ deploy/lab/                Reproducible test lab (proxy scenarios, WebSockets, S
 
 上游资源同样适用：[DeepSeek Harness 文档](https://deepseek-harness.github.io/deepseek-harness/)、[Discord 社区](https://discord.gg/Ycq5dCaS4)、[GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)。fork 特有的问题请提交到[本仓库的 issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues)。
 
+## 引用
+
+```bibtex
+@misc{deepseek-harness2026,
+  title={DeepSeek Harness: Everything is a Plugin},
+  author={DeepSeek-AI},
+  year={2026},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/deepseek-ai/deepseek-harness}},
+}
+```
+
 ## 许可证
 
 [MIT](LICENSE)，与上游一致。第三方声明：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

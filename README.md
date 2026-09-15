@@ -175,6 +175,18 @@ Upstream `packages/`, `apps/`, and documentation are unmodified except for the t
 
 Upstream resources apply: [DeepSeek Harness documentation](https://deepseek-harness.github.io/deepseek-harness/), [Discord community](https://discord.gg/Ycq5dCaS4), and [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions). Fork-specific issues go to [this repository's issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues).
 
+## Citation
+
+```bibtex
+@misc{deepseek-harness2026,
+  title={DeepSeek Harness: Everything is a Plugin},
+  author={DeepSeek-AI},
+  year={2026},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/deepseek-ai/deepseek-harness}},
+}
+```
+
 ## License
 
 [MIT](LICENSE), matching upstream. Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
