@@ -52,7 +52,7 @@ describe('initializeProfileFromDefault', () => {
           private: true,
           packageManager: 'pnpm@11.7.0',
           dependencies: {},
-          dsh: { profile: { bundles: [...template.bundles], patchReload: template.patchReload } },
+          dsh: { profile: { bundles: [...template.bundles] } },
         })
         expect(readFileSync(join(dir, PROFILE_PATCH_FILENAME), 'utf8')).toContain('[]')
         expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toContain('nodeLinker: hoisted')
@@ -63,7 +63,7 @@ describe('initializeProfileFromDefault', () => {
   it('does not copy the local source profile dependencies or user patch', () => {
     withHome((home) => {
       const sourceDir = resolveProfileDir('web', home)
-      initProfile(sourceDir, ['local-bundle'], 'startup')
+      initProfile(sourceDir, ['local-bundle'])
       const sourceManifest = readProfileManifest('test', sourceDir)
       sourceManifest.dependencies = { 'local-bundle': '1.0.0' }
       writeProfileManifest(sourceDir, sourceManifest)
@@ -76,7 +76,6 @@ describe('initializeProfileFromDefault', () => {
       expect(target.dependencies).toEqual({})
       expect(target.dsh?.profile).toEqual({
         bundles: [...PROFILE_TEMPLATES.web!.bundles],
-        patchReload: PROFILE_TEMPLATES.web!.patchReload,
       })
       expect(readFileSync(join(targetDir, PROFILE_PATCH_FILENAME), 'utf8')).not.toContain('local-only')
     })
@@ -85,7 +84,7 @@ describe('initializeProfileFromDefault', () => {
   it('rejects an existing target without changing its files', () => {
     withHome((home) => {
       const dir = resolveProfileDir('rescue', home)
-      initProfile(dir, ['existing-bundle'], 'startup')
+      initProfile(dir, ['existing-bundle'])
       writeFileSync(join(dir, PROFILE_PATCH_FILENAME), '- id: existing\n  disabled: true\n')
       const paths = ['package.json', PROFILE_PATCH_FILENAME, 'pnpm-workspace.yaml'].map(file => join(dir, file))
       const before = paths.map(path => readFileSync(path))
