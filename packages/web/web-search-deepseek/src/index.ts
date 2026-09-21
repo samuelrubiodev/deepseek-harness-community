@@ -95,6 +95,13 @@ function resolveOptions(ctx: Context, config: Config): DeepSeekSearchProviderOpt
   const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0
     ? config.apiKey
     : undefined
+  const explicitBaseURL = config.baseURL?.trim()
+  const envSearchBaseURL = launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value.trim()
+  const baseURL = (explicitBaseURL !== undefined && explicitBaseURL.length > 0)
+    ? explicitBaseURL
+    : (envSearchBaseURL !== undefined && envSearchBaseURL.length > 0)
+      ? envSearchBaseURL
+      : DEEPSEEK_DEFAULT_BASE_URL
   return {
     ...literalApiKey === undefined ? {} : { apiKey: literalApiKey },
     resolveApiKey: async () => {
@@ -105,9 +112,7 @@ function resolveOptions(ctx: Context, config: Config): DeepSeekSearchProviderOpt
       return ambient !== undefined && ambient.value.length > 0 ? ambient.value : undefined
     },
     apiKeyEnv,
-    baseURL: config.baseURL
-      ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value
-      ?? DEEPSEEK_DEFAULT_BASE_URL,
+    baseURL,
     model: config.model ?? DEEPSEEK_DEFAULT_MODEL,
     apiVersion: config.apiVersion ?? DEEPSEEK_DEFAULT_API_VERSION,
     maxTokens: config.maxTokens ?? DEEPSEEK_DEFAULT_MAX_TOKENS,

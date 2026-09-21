@@ -28,6 +28,14 @@ export PNPM_HOME="${DSH_HOME:-/data}/.pnpm"
 export PATH="$PNPM_HOME:$PATH"
 export npm_config_store_dir="${DSH_HOME:-/data}/.pnpm-store"
 
+# Scrub empty variables passed by Docker Compose (${VAR:-})
+if [ -z "${DEEPSEEK_BASE_URL:-}" ]; then
+    unset DEEPSEEK_BASE_URL
+fi
+if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+    unset DEEPSEEK_API_KEY
+fi
+
 echo "[dsh-docker] Starting DeepSeek Harness..."
 echo "[dsh-docker] USER=$(whoami 2>/dev/null || echo "uid=$(id -u)") ($(id -u):$(id -g))"
 if [ "$(id -u)" -eq 0 ]; then

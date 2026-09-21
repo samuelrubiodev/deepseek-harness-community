@@ -2246,6 +2246,22 @@ describe('plugin registration and config', () => {
     ])
     expect(resolveAdapterOptions({ baseURL: 'https://gateway.internal' }, shell).baseURL).toBe('https://gateway.internal')
   })
+
+  it('falls back to default baseURL when config or environment baseURL is empty or whitespace', () => {
+    const emptyEnv = createLaunchEnvironmentSnapshot([
+      { source: 'process', values: { DEEPSEEK_BASE_URL: '' } },
+    ])
+    expect(resolveAdapterOptions({}, emptyEnv).baseURL).toBe(LlmDeepSeek.MESSAGES_BASE_URL)
+    expect(resolveAdapterOptions({ protocol: 'chat-completions' }, emptyEnv).baseURL).toBe(LlmDeepSeek.PUBLIC_BASE_URL)
+
+    const whitespaceEnv = createLaunchEnvironmentSnapshot([
+      { source: 'process', values: { DEEPSEEK_BASE_URL: '   ' } },
+    ])
+    expect(resolveAdapterOptions({}, whitespaceEnv).baseURL).toBe(LlmDeepSeek.MESSAGES_BASE_URL)
+
+    expect(resolveAdapterOptions({ baseURL: '' }).baseURL).toBe(LlmDeepSeek.MESSAGES_BASE_URL)
+    expect(resolveAdapterOptions({ baseURL: '   ' }).baseURL).toBe(LlmDeepSeek.MESSAGES_BASE_URL)
+  })
   it('uses the public Chat base URL when selected without an endpoint override', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'k')
     vi.stubEnv('DEEPSEEK_BASE_URL', undefined)
