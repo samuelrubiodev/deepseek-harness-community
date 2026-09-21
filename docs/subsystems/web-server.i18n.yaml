@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/web-server.md
-web-server.md: 04e263f4f19cccc77350e5cca5fe42c9ddf389c4
-web-server.zh.md: 42be8b8005c19c7b691921c3548519aa04166a29
+web-server.md: ca42ec30dd82e09292ec78eb15fdf380417dce4d
+web-server.zh.md: ad42cd58d44e2a6c74c1b2cd35dc56877e4b2222
