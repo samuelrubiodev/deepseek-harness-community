@@ -64,4 +64,19 @@ describe('web-search-deepseek settings section', () => {
     await bench.ctx.fiber.dispose()
   })
 
+  it('falls back to DEEPSEEK_SEARCH_BASE_URL when baseURL is omitted or empty', async () => {
+    vi.stubEnv('DEEPSEEK_SEARCH_BASE_URL', 'https://search.env.test/v1')
+    const ctx = new Context()
+    await ctx.plugin(WebRuntime, {})
+    const live = await liveConfig(ctx, deepseekPlugin, { apiKey: 'ds-key', baseURL: '' })
+    expect(await searchOnce(ctx)).toContain('https://search.env.test/v1')
+
+    await live.update({ baseURL: undefined })
+    expect(await searchOnce(ctx)).toContain('https://search.env.test/v1')
+
+    vi.stubEnv('DEEPSEEK_SEARCH_BASE_URL', '')
+    expect(await searchOnce(ctx)).toContain(deepseekPlugin.DEEPSEEK_DEFAULT_BASE_URL)
+    await ctx.fiber.dispose()
+  })
+
 })

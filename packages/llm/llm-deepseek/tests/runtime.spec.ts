@@ -2272,6 +2272,11 @@ describe('plugin registration and config', () => {
     expect(resolveAdapterOptions({ baseURL: '   ' }).baseURL).toBe(LlmDeepSeek.PUBLIC_BASE_URL)
   })
 
+  it('rejects an unparseable Messages baseURL', () => {
+    expect(() => resolveAdapterOptions({ baseURL: 'http://::1' }))
+      .toThrow(/Messages baseURL must be an HTTP\(S\) root/)
+  })
+
   it('uses the public Messages base URL without an endpoint override', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'k')
     vi.stubEnv('DEEPSEEK_BASE_URL', undefined)
