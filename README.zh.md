@@ -179,7 +179,38 @@ deploy/lab/                Reproducible test lab (proxy scenarios, WebSockets, S
 
 ## 社区与支持
 
-上游资源同样适用：[DeepSeek Harness 文档](https://deepseek-harness.github.io/deepseek-harness/)、[Discord 社区](https://discord.gg/Ycq5dCaS4)、[GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)。fork 特有的问题请提交到[本仓库的 issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues)。
+- 通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。fork 特有的问题请提交到[本仓库的 issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues)。
+- 为你的插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
+- 欢迎加入 DeepSeek Harness 企微群：扫码添加企微小助手并填写入群问卷，完成后小助手会邀请你入群。
+
+<table>
+  <thead>
+    <tr>
+      <th align="center">企微小助手</th>
+      <th align="center">入群问卷</th>
+      <th align="center">微信公众号</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center"><img src="https://cdn.deepseek.com/harness/readme/community-wecom-assistant.png" alt="DeepSeek Harness 企微小助手二维码" width="180" height="180"></td>
+      <td align="center"><a href="https://trtgsjkv6r.feishu.cn/share/base/form/shrcnIt5twSVdLGD52KJBckGCgg"><img src="https://cdn.deepseek.com/harness/readme/community-wecom-survey.png" alt="DeepSeek Harness 入群问卷二维码" width="180" height="180"></a></td>
+      <td align="center"><img src="https://cdn.deepseek.com/harness/readme/community-wechat-official-account.png" alt="DeepSeek Harness 团队微信公众号二维码" width="180" height="180"></td>
+    </tr>
+  </tbody>
+</table>
+
+## 参与贡献
+
+参见 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。
+
+## 开发
+
+请先阅读[开发指南](docs/development.zh.md)与[架构文档](docs/architecture.zh.md)。
+
+`pnpm run dev:web` 会在一个终端里完成构建、启动，并在源码修改时重建 client bundle；`make help` 列出 Web 与 Desktop 对应的 Make target。完整表格见开发指南的「应用命令」一节。
+
+面向 agent：请遵循 [AGENTS.md](AGENTS.md)。
 
 ## 引用
 
