@@ -23,19 +23,18 @@ export interface ProxyConnection {
 interface ContextServices {
   readonly connection?: ProxyConnection
   readonly webServer?: { readonly port?: number }
-  get?(key: string): unknown
 }
 
 function connectionOf(ctx: Context): ProxyConnection | undefined {
   try {
-    const raw = ctx as ContextServices
-    const resolved = typeof raw.get === 'function'
-      ? (raw.get('connection') as ProxyConnection | undefined)
-      : raw.connection
-    return resolved ?? raw.connection
+    return (ctx as ContextServices).connection
   } catch {
     return undefined
   }
+}
+
+function webServerPortOf(ctx: Context): number | undefined {
+  return (ctx as ContextServices).webServer?.port
 }
 
 /** Route prefix under which dynamic port proxy endpoints are mounted. */
@@ -306,11 +305,7 @@ export async function handleProxyRequest(
     }
 
     // Prevent proxy loop to webServer itself
-    const raw = ctx as ContextServices
-    const resolvedWebServer = typeof raw.get === 'function'
-      ? (raw.get('webServer') as { readonly port?: number } | undefined)
-      : raw.webServer
-    const webServerPort = (resolvedWebServer ?? raw.webServer)?.port
+    const webServerPort = webServerPortOf(ctx)
     if (webServerPort !== undefined && port === webServerPort) {
       res.statusCode = 400
       res.setHeader('content-type', 'application/json; charset=utf-8')
@@ -537,11 +532,7 @@ export async function handleProxyUpgrade(
   }
 
   // Prevent proxy loop to webServer itself
-  const raw = ctx as ContextServices
-  const resolvedWebServer = typeof raw.get === 'function'
-    ? (raw.get('webServer') as { readonly port?: number } | undefined)
-    : raw.webServer
-  const webServerPort = (resolvedWebServer ?? raw.webServer)?.port
+  const webServerPort = webServerPortOf(ctx)
   if (webServerPort !== undefined && port === webServerPort) {
     socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
     socket.destroy()
