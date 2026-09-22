@@ -159,6 +159,7 @@ describe('CI workflow', () => {
       || !isRecord(workflow.jobs['node-24-consumers'])
       || !isRecord(workflow.jobs['node-compat'])
       || !isRecord(workflow.jobs['all-checks-passed'])
+      || !isRecord(masterWorkflow.jobs)
       || !isRecord(masterWorkflow.jobs['wine-apt-cache'])) {
       throw new TypeError('CI workflow must define windows-build, windows-coverage, windows-native-tests, node-24, node-24-coverage, node-24-bench, node-24-consumers, node-compat, and all-checks-passed; ci-master must define wine-apt-cache')
     }
