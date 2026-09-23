@@ -254,7 +254,7 @@ export function apply(ctx: Context, config: Config): void {
   if (typeof ctx.webServer.register === 'function') {
     let connection: import('./proxy.ts').ProxyConnection | undefined
     ctx.inject(['connection'], (connCtx) => {
-      connection = (connCtx as unknown as { connection?: import('./proxy.ts').ProxyConnection }).connection
+      connection = connCtx.get('connection')
     })
 
     ctx.effect(() => ctx.webServer.register({

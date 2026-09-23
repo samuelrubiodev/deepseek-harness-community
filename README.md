@@ -173,7 +173,21 @@ Upstream `packages/`, `apps/`, and documentation are unmodified except for the t
 
 ## Community and support
 
-Upstream resources apply: [DeepSeek Harness documentation](https://deepseek-harness.github.io/deepseek-harness/), [Discord community](https://discord.gg/Ycq5dCaS4), and [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions). Fork-specific issues go to [this repository's issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues).
+- Submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions). Fork-specific issues go to [this repository's issues](https://github.com/samuelrubiodev/deepseek-harness-community/issues).
+- Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to your plugin repository for discoverability.
+- Join <a href="https://discord.gg/Ycq5dCaS4">DeepSeek Harness Discord community</a>.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Development
+
+Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
+
+`pnpm run dev:web` builds, serves, and rebuilds client bundles on source edits in one terminal, and `make help` lists the matching Make targets for Web and Desktop; the guide's application commands section owns the full table.
+
+For agents, follow [AGENTS.md](AGENTS.md).
 
 ## Citation
 

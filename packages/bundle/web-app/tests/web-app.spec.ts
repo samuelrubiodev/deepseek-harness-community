@@ -9,6 +9,7 @@ import { EventEmitter } from 'node:events'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { IncomingMessage, ServerResponse } from 'node:http'
+import { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Duplex, PassThrough } from 'node:stream'
@@ -58,7 +59,7 @@ type BrowserLauncher = ChildProcess & { stderr: PassThrough }
 
 /** Minimal browser-launcher process for the native handoff adapter. */
 function launcher(): BrowserLauncher {
-  return Object.assign(new EventEmitter(), { stderr: new PassThrough() }) as unknown as BrowserLauncher
+  return Object.assign(new EventEmitter(), { stderr: new PassThrough() }) as BrowserLauncher
 }
 
 /** Stage a dist fixture and point the bundle's resolver at it. */
@@ -515,7 +516,7 @@ describe('web-app runtime glue', () => {
         return () => {}
       },
     }
-    ctx.provide('webServer', server as unknown as WebServer)
+    ctx.provide('webServer', server as never)
     provideConnection(ctx)
     apply(ctx, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -527,11 +528,11 @@ describe('web-app runtime glue', () => {
     expect(registeredFallbackUpgrade).toBeDefined()
 
     // Invoke registered handlers to verify they wire through to proxy implementation
-    const dummyReq = { url: '/proxy/invalid', method: 'GET', headers: {} } as unknown as IncomingMessage
-    const writeHead = vi.fn()
-    const setHeader = vi.fn()
-    const end = vi.fn()
-    const dummyRes = { writeHead, setHeader, end, headersSent: false } as unknown as ServerResponse
+    const dummyReq = new IncomingMessage(new Socket())
+    dummyReq.url = '/proxy/invalid'
+    dummyReq.method = 'GET'
+    const dummyRes = new ServerResponse(dummyReq)
+    const end = vi.spyOn(dummyRes, 'end')
     await registeredRoutes[0]!.handler(dummyReq, dummyRes)
     expect(end).toHaveBeenCalled()
 
@@ -560,7 +561,7 @@ describe('web-app runtime glue', () => {
         return () => {}
       },
     }
-    ctx.provide('webServer', server as unknown as WebServer)
+    ctx.provide('webServer', server as never)
     provideConnection(ctx)
     apply(ctx, new Config({ openBrowser: false, printUrl: false, surfaceContext: false, trustedHosts: [] }))
     await new Promise(resolve => setTimeout(resolve, 0))

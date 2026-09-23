@@ -15,7 +15,7 @@ import {
 
 describe('dynamic port proxy', () => {
   const serversToClose: Server[] = []
-  const socketsToDestroy: Socket[] = []
+  const socketsToDestroy: Duplex[] = []
 
   afterEach(async () => {
     while (socketsToDestroy.length > 0) {
@@ -378,8 +378,8 @@ describe('dynamic port proxy', () => {
       },
     }
     await handleProxyRequest(
-      fakeReq as unknown as import('node:http').IncomingMessage,
-      fakeRes as unknown as import('node:http').ServerResponse,
+      fakeReq as never,
+      fakeRes as never,
       ctx,
     )
     expect(handledStatus).toBe(400)
@@ -477,7 +477,7 @@ describe('dynamic port proxy', () => {
 
     const targetServer = createServer()
     targetServer.on('upgrade', (req, socket) => {
-      socketsToDestroy.push(socket as Socket)
+      socketsToDestroy.push(socket)
       receivedUpgradePath = req.url ?? ''
       socket.write([
         'HTTP/1.1 101 Switching Protocols',
@@ -559,7 +559,7 @@ describe('dynamic port proxy', () => {
 
     const targetServer = createServer()
     targetServer.on('upgrade', (req, socket) => {
-      socketsToDestroy.push(socket as Socket)
+      socketsToDestroy.push(socket)
       receivedUpgradePath = req.url ?? ''
       socket.write([
         'HTTP/1.1 101 Switching Protocols',
@@ -629,7 +629,7 @@ describe('dynamic port proxy', () => {
   it('buffers and flushes initial head bytes in WebSocket upgrades', async () => {
     const targetServer = createServer()
     targetServer.on('upgrade', (_req, socket) => {
-      socketsToDestroy.push(socket as Socket)
+      socketsToDestroy.push(socket)
       socket.write([
         'HTTP/1.1 101 Switching Protocols',
         'Upgrade: websocket',
@@ -663,7 +663,7 @@ describe('dynamic port proxy', () => {
         cb()
       },
     })
-    socketsToDestroy.push(clientSocket as unknown as Socket)
+    socketsToDestroy.push(clientSocket)
 
     await handleProxyUpgrade(clientReq, clientSocket, Buffer.from('client-head-bytes'), ctx)
     await new Promise(r => setTimeout(r, 50))
@@ -782,7 +782,7 @@ describe('dynamic port proxy', () => {
   it('handles bare /proxy/:port without trailing slash in upgrade', async () => {
     const targetServer = createServer()
     targetServer.on('upgrade', (_req, socket) => {
-      socketsToDestroy.push(socket as Socket)
+      socketsToDestroy.push(socket)
       socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n')
     })
     await new Promise<void>((resolve) => {
