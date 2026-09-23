@@ -24,7 +24,7 @@ The fork publishes multi-architecture images (amd64 + arm64) to GHCR:
 
 ```text
 ghcr.io/samuelrubiodev/deepseek-harness-community:stable                  # latest stable release
-ghcr.io/samuelrubiodev/deepseek-harness-community:dsh-v<version>          # pinned releases
+ghcr.io/samuelrubiodev/deepseek-harness-community:dsh-v<version>          # pinned releases (e.g. dsh-v0.1.7-alpha.2-community.1)
 ghcr.io/samuelrubiodev/deepseek-harness-community:latest                  # current master
 ```
 
