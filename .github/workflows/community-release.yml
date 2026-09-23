@@ -109,17 +109,27 @@ jobs:
             }
           }
 
-          notes += `### 📦 Docker Images (GHCR)\n\n`;
-          notes += `- \`ghcr.io/${repo}:${tag}\`\n`;
-          notes += `- \`ghcr.io/${repo}:stable\`\n`;
-          notes += `- \`ghcr.io/${repo}:latest\`\n\n`;
+          let footer = `### 📦 Docker Images (GHCR)\n\n`;
+          footer += `- \`ghcr.io/${repo}:${tag}\`\n`;
+          footer += `- \`ghcr.io/${repo}:stable\`\n`;
+          footer += `- \`ghcr.io/${repo}:latest\`\n\n`;
 
-          notes += `### 🌐 Community Infrastructure\n\n`;
-          notes += `- Retained LAN host trust and reverse-proxy forwarding (\`DSH_AUTH_MODE=none\` and \`__DSH_TRUSTED_HOSTS__\`).\n\n`;
+          footer += `### 🌐 Community Infrastructure\n\n`;
+          footer += `- Retained LAN host trust and reverse-proxy forwarding (\`DSH_AUTH_MODE=none\` and \`__DSH_TRUSTED_HOSTS__\`).\n\n`;
 
           if (prevTag) {
-            notes += `**Full Changelog**: https://github.com/${repo}/compare/${prevTag}...${tag}\n`;
+            footer += `**Full Changelog**: https://github.com/${repo}/compare/${prevTag}...${tag}\n`;
           }
+
+          const MAX_BODY_LENGTH = 120000;
+          if (notes.length + footer.length > MAX_BODY_LENGTH) {
+            const availableLength = MAX_BODY_LENGTH - footer.length - 200;
+            const cutIndex = notes.lastIndexOf('\n- ', availableLength);
+            notes = notes.slice(0, cutIndex > 0 ? cutIndex : availableLength);
+            notes += `\n\n*(Changelog truncated due to release note length limits. See the full changelog link below.)*\n\n`;
+          }
+
+          notes += footer;
 
           fs.writeFileSync('RELEASE_NOTES.md', notes, 'utf8');
           console.log('--- Generated Release Notes ---');
