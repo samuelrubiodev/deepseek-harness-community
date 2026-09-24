@@ -45,7 +45,7 @@ docker compose up -d --build
 
 Open `http://<server-ip>:3080` and paste your `DEEPSEEK_API_KEY` in the onboarding dialog (or set it in `.env` first). The first build compiles the TypeScript monorepo and takes a few minutes; later starts are immediate.
 
-Prefer not to build? The fork publishes multi-arch (amd64/arm64) images at `ghcr.io/samuelrubiodev/deepseek-harness-community` (`:latest`, `:stable`, plus pinned `dsh-v*` tags); the templates in [deploy/nas/](deploy/nas/README.md) pull from it with no login, no checkout, and no build — designed for NAS hosts (Synology, Unraid, TrueNAS) and servers.
+Prefer not to build? The fork publishes multi-arch (amd64/arm64) images to GitHub Container Registry (GHCR) at `ghcr.io/samuelrubiodev/deepseek-harness-community` with tags `:stable` (latest tagged release), `:latest` (latest build from default branch `master`), and `:dsh-v<version>` (pinned release versions, e.g. `dsh-v0.1.7-alpha.2-community.1`); the templates in [deploy/nas/](deploy/nas/README.md) pull from it with no login, no checkout, and no build — designed for NAS hosts (Synology, Unraid, TrueNAS) and servers.
 
 Two volumes persist all state across upgrades and container recreation:
 
