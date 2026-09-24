@@ -1,6 +1,61 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
-README.md: 8d78e04940046f77e45ccddbd84a28b5ca8441bd
-README.zh.md: 652094d190274e8e93cf679d3bb9ce0c7d5c6695
+/deepseek-harness-community-fork:
+  en: db757e51c1ba791b
+  zh: d9400074aa31d73b
+/deepseek-harness-community-fork/what-this-fork-changes:
+  en: 74867ed4726bac00
+  zh: 26c7589dad821759
+/deepseek-harness-community-fork/run:
+  en: 4e0248e4c6474fc6
+  zh: eb2fb8d78c7d6bc0
+/deepseek-harness-community-fork/run/run-with-docker:
+  en: 7a7c8546fd624e1d
+  zh: 2599a196c2dd20eb
+/deepseek-harness-community-fork/run/run-from-source:
+  en: f9da6d0de8bc55db
+  zh: 36cc3fd19b35b560
+/deepseek-harness-community-fork/quick-start-docker:
+  en: 56a258f8748b8377
+  zh: 096c991c2893d2fa
+/deepseek-harness-community-fork/configuration:
+  en: 825cf7b6a618253a
+  zh: 0da674923e259e31
+/deepseek-harness-community-fork/configuration/lan-access:
+  en: 07e7eba6111f6bf5
+  zh: bc8a2c9ecd204aff
+/deepseek-harness-community-fork/configuration/sign-in-token:
+  en: c04429d7535b10aa
+  zh: 0026f0084ce96ce8
+/deepseek-harness-community-fork/configuration/reverse-proxy:
+  en: 01d5a06a501a195b
+  zh: 1139faab5bea1b10
+/deepseek-harness-community-fork/upgrading:
+  en: a4faac2ab67f3d9a
+  zh: bd1ecde66d0cdc20
+/deepseek-harness-community-fork/running-from-source-no-docker:
+  en: 427c7aa515aefdb1
+  zh: d56fa84e9945b4f4
+/deepseek-harness-community-fork/troubleshooting:
+  en: cbeb86ec8ad784a3
+  zh: 1bd58613a51a3056
+/deepseek-harness-community-fork/repository-layout-fork-specific:
+  en: f8ce3b352ff29acb
+  zh: b3005c7921f96170
+/deepseek-harness-community-fork/community-and-support:
+  en: c8b55b3a747bfeb0
+  zh: fd3a516bb2a864cf
+/deepseek-harness-community-fork/contributing:
+  en: cabc2d3e9f8898bd
+  zh: 83b6d238bae29ce3
+/deepseek-harness-community-fork/development:
+  en: 803ca2b11b497bed
+  zh: 8b4071eb0e7783ef
+/deepseek-harness-community-fork/citation:
+  en: 6704e9e5a8d49a91
+  zh: 85c9cdd8d56f8e9d
+/deepseek-harness-community-fork/license:
+  en: b5f534ff25c88e44
+  zh: f42564e4eed1aeec

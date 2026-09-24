@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-14-proxy-websocket-and-vite-hmr.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-14-proxy-websocket-and-vite-hmr.md
-2026-09-14-proxy-websocket-and-vite-hmr.md: 3672af9743e5a61ae1b947ea36baa5a1467f36f3
-2026-09-14-proxy-websocket-and-vite-hmr.zh.md: c59ace6c8ff0e1a120a831a08ae44632c840be3f
+/agent-note-dynamic-port-proxy-websocket-upgrade-and-vite-hmr-support:
+  en: b87ae43b2c78f187
+  zh: 509440a4058d6ad7
+/agent-note-dynamic-port-proxy-websocket-upgrade-and-vite-hmr-support/problem:
+  en: b5d46c0f47275e63
+  zh: 3de91a59e04084fc
+/agent-note-dynamic-port-proxy-websocket-upgrade-and-vite-hmr-support/decision:
+  en: c32b8cdee7bd8392
+  zh: ba23e3d01211dae6
+/agent-note-dynamic-port-proxy-websocket-upgrade-and-vite-hmr-support/alternatives-considered:
+  en: a12de191040a1404
+  zh: 699981090436335b
+/agent-note-dynamic-port-proxy-websocket-upgrade-and-vite-hmr-support/consequences:
+  en: b63742a38d5ee8e3
+  zh: b43f1f5dc28640f2
+/agent-note-dynamic-port-proxy-websocket-upgrade-and-vite-hmr-support/testing:
+  en: a34cfa306e6aed62
+  zh: 1cf6c910fb16cce0
