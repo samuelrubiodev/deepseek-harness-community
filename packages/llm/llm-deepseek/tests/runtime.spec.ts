@@ -2248,15 +2248,15 @@ describe('plugin registration and config', () => {
     const emptyEnv = createLaunchEnvironmentSnapshot([
       { source: 'process', values: { DEEPSEEK_BASE_URL: '' } },
     ])
-    expect(resolveAdapterOptions({}, emptyEnv).baseURL).toBe(LlmDeepSeek.PUBLIC_BASE_URL)
+    expect(resolveAdapterOptions({}, emptyEnv).baseURL).toBe(Protocol.PUBLIC_BASE_URL)
 
     const whitespaceEnv = createLaunchEnvironmentSnapshot([
       { source: 'process', values: { DEEPSEEK_BASE_URL: '   ' } },
     ])
-    expect(resolveAdapterOptions({}, whitespaceEnv).baseURL).toBe(LlmDeepSeek.PUBLIC_BASE_URL)
+    expect(resolveAdapterOptions({}, whitespaceEnv).baseURL).toBe(Protocol.PUBLIC_BASE_URL)
 
-    expect(resolveAdapterOptions({ baseURL: '' }).baseURL).toBe(LlmDeepSeek.PUBLIC_BASE_URL)
-    expect(resolveAdapterOptions({ baseURL: '   ' }).baseURL).toBe(LlmDeepSeek.PUBLIC_BASE_URL)
+    expect(resolveAdapterOptions({ baseURL: '' }).baseURL).toBe(Protocol.PUBLIC_BASE_URL)
+    expect(resolveAdapterOptions({ baseURL: '   ' }).baseURL).toBe(Protocol.PUBLIC_BASE_URL)
   })
 
   it('rejects an unparseable Messages baseURL', () => {
