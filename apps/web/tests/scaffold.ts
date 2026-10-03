@@ -517,31 +517,36 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   // the resolved harness home so a scaffold sharing another's home — the
   // cross-port persistence scenario — pins the same roots the settings and
   // credentials rows were configured with.
-  const skillRootEnvironment = {
+  //
+  // A scenario that supplies its own collector must opt in here as well: the
+  // launcher pushes its default-deny patch after every bundle and overlay
+  // layer, so the row this scaffold configures would otherwise be disabled.
+  const scaffoldEnvironment = {
     DSH_HOME: harnessHome,
     DSH_AGENTS_HOME: join(workspaceCwd, '.agents-home'),
     DSH_BUNDLED_SKILL_DIR: join(workspaceCwd, '.bundled-skills'),
+    ...(options.telemetryUrl === undefined ? {} : { DSH_TELEMETRY_ENABLED: '1' }),
   }
-  const originalSkillRootEnvironment = Object.fromEntries(
-    Object.keys(skillRootEnvironment).map(key => [key, process.env[key]]),
+  const originalScaffoldEnvironment = Object.fromEntries(
+    Object.keys(scaffoldEnvironment).map(key => [key, process.env[key]]),
   )
-  let skillRootEnvironmentRestored = false
-  const restoreSkillRootEnvironment = (): void => {
-    if (skillRootEnvironmentRestored) return
-    skillRootEnvironmentRestored = true
-    for (const [key, value] of Object.entries(originalSkillRootEnvironment)) {
+  let scaffoldEnvironmentRestored = false
+  const restoreScaffoldEnvironment = (): void => {
+    if (scaffoldEnvironmentRestored) return
+    scaffoldEnvironmentRestored = true
+    for (const [key, value] of Object.entries(originalScaffoldEnvironment)) {
       if (value === undefined) Reflect.deleteProperty(process.env, key)
       else process.env[key] = value
     }
   }
-  Object.assign(process.env, skillRootEnvironment)
+  Object.assign(process.env, scaffoldEnvironment)
   let persistenceRoot: string
   try {
     persistenceRoot = await mkdtemp(join(tmpdir(), 'dsh-web-e2e-sessions-'))
   } catch (error) {
     const failures: unknown[] = [error]
     await rm(workspaceCwd, { recursive: true, force: true }).catch((cleanupError: unknown) => failures.push(cleanupError))
-    restoreSkillRootEnvironment()
+    restoreScaffoldEnvironment()
     if (failures.length > 1) throw new AggregateError(failures, 'web scaffold temp-root setup failed')
     throw error
   }
@@ -907,7 +912,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       await publicProxy.close().catch((closeError: unknown) => cleanupFailures.push(closeError))
     }
     restoreCredentialEnvironment()
-    restoreSkillRootEnvironment()
+    restoreScaffoldEnvironment()
     if (cleanupFailures.length > 0) {
       throw new AggregateError([error, ...cleanupFailures], 'web scaffold setup failed and cleanup was incomplete')
     }
@@ -988,7 +993,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         }
       } finally {
         restoreCredentialEnvironment()
-        restoreSkillRootEnvironment()
+        restoreScaffoldEnvironment()
       }
       if (failures.length > 0) throw new AggregateError(failures, 'web scaffold teardown failed')
     },
