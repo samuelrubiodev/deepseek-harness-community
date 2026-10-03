@@ -26,9 +26,9 @@ kind: "package-reference"
 
 | 配置键 | 默认值 | 含义 |
 |---|---:|---|
-| `enabled` | `true` | 注册 `dsh_plugin_packages` 贡献。将其设为 `false` 可省略包元数据。 |
+| `enabled` | `false` | 注册 `dsh_plugin_packages` 贡献。将其设为 `true` 可附加包元数据。随附核心组合通过 `DSH_PLUGIN_INVENTORY_UPLOAD` 选择加入，非空的 `DSH_TELEMETRY_DISABLED` 会覆盖该选择加入。 |
 
-随附 profile 使用该默认值，因此只要准备成功，每个 DeepSeek 官方请求都会携带包清单。
+随附核心组合挂载该插件时默认拒绝，并通过 `DSH_PLUGIN_INVENTORY_UPLOAD` 选择加入；选择加入后，只要准备成功，请求就会携带包清单。
 
 <a id="collection"></a>
 ## 收集

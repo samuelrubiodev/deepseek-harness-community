@@ -87,7 +87,7 @@ interface SessionTelemetryCaptureOptions {
 }
 ```
 
-`includeHistory` 允许捕获存储与继承的记录，但本身不授权捕获。[OTel 后端](../../packages/session/session-telemetry-otel/README.zh.md)使用按需捕获，并要求新的自身显式反馈；它只释放截至该反馈的完整前缀，适用于所有提供方。
+`includeHistory` 允许捕获存储与继承的记录，但本身不授权捕获。[OTel 后端](../../packages/session/session-telemetry-otel/README.zh.md)使用按需捕获，并要求新的自身显式反馈；它只释放截至该反馈的完整前缀，适用于所有提供方。随附组合挂载该后端时默认拒绝：导出需要非空的 `DSH_TELEMETRY_ENABLED`、设为 `FEEDBACK_ONLY` 的 `DSH_TELEMETRY_MODE`，以及通过 `DSH_TELEMETRY_OTLP_URL` 提供的收集器地址；而非空的 `DSH_TELEMETRY_DISABLED` 即使已提供模式也会强制 `DISABLED`。
 
 ## 后端约定
 

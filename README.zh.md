@@ -2,6 +2,8 @@
 
 [English](README.md) | 中文
 
+[Español](README.es.md)
+
 面向家庭服务器与局域网部署的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）自助发行版。它提供一条命令的 Docker 部署、局域网与反向代理访问，以及声明式环境配置——同时不重写上游代码，让 `git merge upstream/master` 保持低成本。
 
 > **安全须知**：DeepSeek Harness 会执行模型生成的代码。在将其暴露到你的网络之前，请先阅读 [SAFETY.zh.md](SAFETY.zh.md)，并且只信任你自己控制的主机。
@@ -17,6 +19,8 @@
 - **容器内无头浏览器与视觉自检**：Docker 镜像预装了 Chromium、系统图形库与 Playwright，支持 agent 原生运行无头浏览器、截取 WebGL 渲染图并在对话中完成视觉自验。
 - **Docker 原生插件管理**：`pnpm` 已预装，其存储区持久化在 `/data` 卷上。
 - **结构化诊断**：被拒绝的请求会在 `docker compose logs` 中输出精确且不含凭据的原因（`untrusted host "…"`、`origin mismatch (…)`、`session cookie expired at …`）。
+- **默认拒绝遥测**：OTel 会话遥测、桌面产品埋点，以及随官方 DeepSeek API 请求携带的非推理元数据（`dsh_session_log`、`dsh_plugin_packages`）全部默认关闭，且不内置任何收集器地址。每项都有显式的选择加入变量，而 `DSH_TELEMETRY_DISABLED` 会覆盖全部。参见[遥测与隐私](#telemetry-and-privacy)。
+- **西班牙语界面**：Web 界面提供英文、中文与西班牙语。它会跟随浏览器语言，也可在设置中固定选择。
 
 其余一切——agent 循环、插件、会话存储——都是未修改的上游代码。
 
@@ -116,6 +120,24 @@ DSH_AUTH_MODE=none docker compose up -d
 1. 设置 `DSH_REVERSE_PROXY=true`，并把公开主机名加入 `DSH_TRUSTED_HOSTS`。
 2. 转发 `X-Forwarded-Host: $host` 与 `X-Forwarded-Proto: https`（在终结 TLS 的代理上）。
 3. 传递 `Upgrade` / `Connection` 头，并关闭响应缓冲。
+
+<a id="telemetry-and-privacy"></a>
+
+### 遥测与隐私
+
+除非你主动选择加入，否则不会有任何数据离开你的部署。每条遥测通道以及随官方 DeepSeek API 请求携带的每项非推理贡献都默认拒绝，且不内置任何收集器地址。
+
+| 变量 | 默认值 | 用途 |
+| :--- | :--- | :--- |
+| `DSH_TELEMETRY_ENABLED` | *（空）* | 选择加入 OpenTelemetry 通道。会话遥测还需要 `DSH_TELEMETRY_MODE=FEEDBACK_ONLY` 与 `DSH_TELEMETRY_OTLP_URL`；桌面产品埋点还需要 `DSH_PRODUCT_ANALYTICS_OTLP_URL`。 |
+| `DSH_TELEMETRY_MODE` | `DISABLED` | 会话遥测共享策略。`FEEDBACK_ONLY` 仅在新的显式反馈后释放规范会话前缀；`FULL` 会被拒绝。 |
+| `DSH_TELEMETRY_OTLP_URL` | *（空）* | 会话遥测的 OTLP 日志端点。上传模式必须提供；已选择加入却缺少它时会在加载时失败。 |
+| `DSH_PRODUCT_ANALYTICS_OTLP_URL` | *（空）* | 桌面产品埋点的 OTLP 日志端点。 |
+| `DSH_SESSION_LOG_UPLOAD` | *（空）* | 选择加入：将规范会话日志附加到官方 DeepSeek API 请求。 |
+| `DSH_PLUGIN_INVENTORY_UPLOAD` | *（空）* | 选择加入：将已安装插件清单附加到官方 DeepSeek API 请求。 |
+| `DSH_TELEMETRY_DISABLED` | *（空）* | 覆盖上述所有选择加入项。任何非空值都拒绝，包括 `0` 和 `false`。 |
+
+DeepSeek 推理路径不受影响：无论是否启用遥测，`api.deepseek.com` 请求、harness 身份请求头与 `user-agent` 的行为都相同。
 
 ## 升级
 
