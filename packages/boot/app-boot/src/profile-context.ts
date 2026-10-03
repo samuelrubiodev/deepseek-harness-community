@@ -27,6 +27,8 @@ export interface ProfileContext {
   readonly overlays: readonly PatchOptions[]
   /** Launch-time DSH_TELEMETRY_DISABLED value; any non-empty value opts out. */
   readonly telemetryDisabledEnv: string | undefined
+  /** Explicit telemetry opt-in signal; absent or empty leaves the default deny in place. */
+  readonly telemetryEnabledEnv?: string | undefined
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -39,18 +41,27 @@ declare module '@deepseek-ai/cordis' {
 const TELEMETRY_ROW_ID = 'session-telemetry-otel'
 
 /**
- * Resolve the telemetry opt-out switch into its boot patch. ANY non-empty
- * value (including `'0'`/`'false'`) disables: a privacy switch prefers
- * off-by-mistake over on-by-mistake. A composition without the telemetry row
- * exports nothing, so the switch is then trivially satisfied and no patch is
- * generated — custom profiles need not mount telemetry to run with the
- * switch set.
+ * Resolve the telemetry switches into their boot patch. Telemetry is
+ * default-denied: with neither signal set the row is disabled. ANY non-empty
+ * `disabledEnv` value (including `'0'`/`'false'`) disables and wins over the
+ * opt-in: a privacy switch prefers off-by-mistake over on-by-mistake. A
+ * non-empty `enabledEnv` opts in and leaves the composition's own row state
+ * in place. A composition without the telemetry row exports nothing, so the
+ * switches are then trivially satisfied and no patch is generated — custom
+ * profiles need not mount telemetry to run with the switches set.
  * @param disabledEnv - the raw `DSH_TELEMETRY_DISABLED` value (`undefined` when unset).
+ * @param enabledEnv - the raw `DSH_TELEMETRY_ENABLED` value (`undefined` when unset).
  * @param hasRow - whether the composition carries the telemetry row.
  * @returns the disable patch, or `undefined` when no hard-disable patch is required.
  */
-export function resolveTelemetryPatch(disabledEnv: string | undefined, hasRow: boolean): PatchOptions | undefined {
-  if ((disabledEnv ?? '') === '' || !hasRow) return undefined
+export function resolveTelemetryPatch(
+  disabledEnv: string | undefined,
+  enabledEnv: string | undefined,
+  hasRow: boolean,
+): PatchOptions | undefined {
+  if (!hasRow) return undefined
+  if ((disabledEnv ?? '') !== '') return { id: TELEMETRY_ROW_ID, disabled: true }
+  if ((enabledEnv ?? '') !== '') return undefined
   return { id: TELEMETRY_ROW_ID, disabled: true }
 }
 
@@ -68,7 +79,7 @@ export function readProfilePatches(binName: string, context: ProfileContext, ini
     ...(loadOptionalPatches(binName, join(context.home, PROFILE_PATCH_FILENAME)) ?? []),
     ...context.overlays,
   ])
-  const telemetryPatch = resolveTelemetryPatch(context.telemetryDisabledEnv,
+  const telemetryPatch = resolveTelemetryPatch(context.telemetryDisabledEnv, context.telemetryEnabledEnv,
     composeEntries([patches]).some(row => row.id === TELEMETRY_ROW_ID))
   if (telemetryPatch !== undefined) patches.push(telemetryPatch)
   return patches

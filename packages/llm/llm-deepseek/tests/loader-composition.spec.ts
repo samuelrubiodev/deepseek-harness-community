@@ -69,6 +69,8 @@ async function loadComposition(
       : [],
     '- id: plugin-package-inventory-deepseek',
     "  name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'",
+    '  config:',
+    '    enabled: true',
     ...options.withDynamic
       ? [
         '- id: credentials',
@@ -125,7 +127,7 @@ async function loadComposition(
 
 
 describe('llm-deepseek real dynamic composition', () => {
-  it('keeps package inventory on when the Loader composition disables session upload', async () => {
+  it('keeps the opted-in package inventory on when the Loader composition disables session upload', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'entry-key')
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
     const { ctx } = await loadComposition({ withDynamic: false, baseURL: server.url, enableSessionLog: false })
@@ -144,12 +146,13 @@ describe('llm-deepseek real dynamic composition', () => {
     expect(SessionLogDeepSeek.acceptedThrough(session)).toBe(-1)
   })
 
-  it('sends the canonical session suffix by default through Loader composition', async () => {
+  it('sends the canonical session suffix when the Loader composition opts in', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'entry-key')
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
     const { ctx } = await loadComposition({
       withDynamic: false,
       baseURL: server.url,
+      enableSessionLog: true,
     })
     const session = ctx.sessions.create(SessionId('extension-composition-enabled'))
     session.append('turn/start', { turn: 1 })

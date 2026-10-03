@@ -17,11 +17,21 @@
     - id: deepseek-llm-api-extensions
       name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'
 
+    # Denied by default: DSH_SESSION_LOG_UPLOAD opts the official DeepSeek
+    # request contribution in, and a non-empty DSH_TELEMETRY_DISABLED — any
+    # value, including '0'/'false' — overrides the opt-in.
     - id: session-log-deepseek
       name: '@deepseek-ai/dsh-session-log-deepseek'
+      config:
+        enabled: !!js "Boolean(process.env.DSH_SESSION_LOG_UPLOAD) && !process.env.DSH_TELEMETRY_DISABLED"
 
+    # Denied by default: DSH_PLUGIN_INVENTORY_UPLOAD opts the official
+    # DeepSeek request contribution in, and a non-empty DSH_TELEMETRY_DISABLED
+    # — any value, including '0'/'false' — overrides the opt-in.
     - id: plugin-package-inventory-deepseek
       name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'
+      config:
+        enabled: !!js "Boolean(process.env.DSH_PLUGIN_INVENTORY_UPLOAD) && !process.env.DSH_TELEMETRY_DISABLED"
 
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek-api-key'

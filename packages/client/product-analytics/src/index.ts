@@ -27,7 +27,7 @@ declare module '@deepseek-ai/cordis' {
 /** Authenticated event intake; disabled instances do not inspect identity or accept new events. */
 export default class ProductAnalytics extends TypertRemoteService {
   static inject = ['deepseekAccount', 'productTelemetry']
-  static Config = z.object({ enabled: z.boolean().default(true).volatile(), appVersion: z.string() })
+  static Config = z.object({ enabled: z.boolean().default(false).volatile(), appVersion: z.string() })
   private active = true
   private readonly listeners = new Set<() => void>()
 
