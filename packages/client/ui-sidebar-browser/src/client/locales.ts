@@ -61,6 +61,37 @@ export const en = {
   'address.unknown': 'The page navigated; this carrier cannot read its new URL.',
 } satisfies Record<SidebarBrowserKey, string>
 
+/** Spanish dictionary with the same keys. */
+export const es = {
+  'type.label': 'Navegador',
+  'guide.title': 'Navegador',
+  'guide.description': 'Navegar por páginas web',
+  'shortcut.noSession': 'Abre una sesión primero',
+  'address.placeholder': 'Introduce una dirección HTTP(S)',
+  'address.changed': 'URL cambiada',
+  back: 'Atrás',
+  forward: 'Adelante',
+  reload: 'Recargar',
+  go: 'Ir',
+  external: 'Abrir en el navegador del sistema',
+  'sandbox.disable': 'Desactivar restricciones de sandbox',
+  'sandbox.enable': 'Restaurar restricciones de sandbox',
+  'sandbox.warning': 'Las restricciones del sandbox están desactivadas; la página puede navegar por la aplicación principal y usar descargas, cuadros de diálogo modales y bloqueos de entrada.',
+  start: 'Introduce una dirección HTTP(S) para empezar a navegar',
+  loading: 'Abriendo…',
+  'restore.previous': 'Abierto anteriormente',
+  'restore.action': 'Restaurar página',
+  'error.empty': 'Introduce una dirección.',
+  'error.invalid': 'Esa dirección no es válida o es demasiado larga.',
+  'error.protocol': 'Solo se admiten direcciones HTTP y HTTPS; usa la vista previa de documentos para archivos locales.',
+  'error.credentials': 'Las direcciones no pueden contener nombre de usuario ni contraseña.',
+  'error.application-origin': 'El navegador integrado no puede abrir la propia aplicación DSH.',
+  'load.failed': 'No se pudo cargar la página; recarga o ábrela en el navegador del sistema.',
+  'load.failed.detail': 'Error al cargar la página ({code}): {description}',
+  'address.unknown': 'La página ha navegado; este soporte no puede leer su nueva URL.',
+} satisfies Record<SidebarBrowserKey, string>
+
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Sidebar Browser labels, navigation controls, and failures. */

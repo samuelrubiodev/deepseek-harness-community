@@ -151,9 +151,20 @@ describe('apply', () => {
           'row.inspect': 'Inspect',
           'menu.userOnly': 'user-only',
         },
+        es: {
+          'row.title': 'Habilidad',
+          'row.running': 'Cargando habilidad',
+          'row.preparing': 'Preparando para cargar una habilidad',
+          'row.failed': 'Error al cargar la habilidad',
+          'row.stopped': 'Carga de la habilidad detenida',
+          'row.instructions': 'Instrucciones',
+          'row.inspect': 'Inspeccionar',
+          'menu.userOnly': 'solo usuario',
+        },
       },
     }])
   })
+
 
   it('registers the "/" skill source; disposal frees the name (HMR safety)', async () => {
     const ctx = new Context()

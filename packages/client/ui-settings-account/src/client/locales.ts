@@ -1,5 +1,5 @@
 /** Account settings copy, owned by the account feature. */
-import { onboardingCopy, onboardingEnglishCopy } from './locales/onboarding.ts'
+import { onboardingCopy, onboardingEnglishCopy, onboardingSpanishCopy } from './locales/onboarding.ts'
 
 /** English account dictionary. */
 export const en = {
@@ -70,4 +70,39 @@ export const zh: Record<AccountKey, string> = {
   quotaDescription: '没有可用额度时，DeepSeek Harness 无法开始新的任务，是否前往充值？或者可以稍后前往 设置 → 账号与余额 进行充值。',
   quotaTopUp: '去充值',
   bonusNoticeTitle: '赠金已到账',
+}
+
+/** Spanish account settings copy. */
+export const es: Record<AccountKey, string> = {
+  modelSignInRequired: 'Modelo no disponible. Inicia sesión y vuelve a intentarlo.',
+  sessionExpired: 'Has cerrado sesión en tu cuenta, inicia sesión nuevamente.',
+  ...onboardingSpanishCopy,
+  close: 'Cerrar', addApiKey: 'Agregar clave API', retry: 'Iniciar sesión de nuevo',
+  loginTitle: 'Comenzar', loginDescription: 'Inicia sesión en tu cuenta de DeepSeek o agrega una clave API para comenzar. Tus proyectos y archivos se almacenan localmente.',
+  browserTitle: 'Esperando inicio de sesión', browserPrompt: '¿La página no se abrió automáticamente? ', copyLink: 'Copiar enlace de inicio de sesión', copiedLink: 'Enlace copiado', copyFailed: 'Error al copiar',
+  browserDescription: ' y luego ábrelo en tu navegador para completar el inicio de sesión.',
+  timeoutTitle: 'El inicio de sesión expiró', timeoutDescription: 'Inicia sesión nuevamente para continuar.',
+  failureTitle: 'No se pudo iniciar sesión',
+  platformFailed: 'No se pudo completar la operación. Vuelve a intentarlo.', platformRetry: 'Reintentar',
+  loading: 'Cargando…', backToHarness: 'Volver a DeepSeek Harness',
+  settings: 'Configuración', contactUs: 'Comentarios', menu: 'Menú de cuenta',
+  nav: 'Cuenta', signedIn: 'Sesión iniciada en DeepSeek', signedOut: 'Sin sesión iniciada',
+  signIn: 'Iniciar sesión', signOut: 'Cerrar sesión',
+  signOutUnknownDescription: 'No se pudieron verificar las tareas en ejecución. Cerrar sesión puede interrumpir las tareas que usan esta cuenta. ¿Cerrar sesión ahora?',
+  signOutDescription: 'Cerrar sesión no eliminará ningún dato. Podrás volver a iniciar sesión en esta cuenta en cualquier momento.',
+  signOutRunningDescription: 'Hay tareas en ejecución actualmente. Cerrar sesión las interrumpirá. ¿Cerrar sesión ahora?', cancel: 'Cancelar', open: 'Abrir navegador',
+  initializing: 'Iniciando sesión…', waiting: 'Continúa en tu navegador',
+  completing: 'Completando inicio de sesión…', expired: 'El inicio de sesión expiró. Vuelve a intentarlo.',
+  failed: 'No se pudo completar la operación. Vuelve a intentarlo.',
+  noResponse: 'Ocurrió un error. Comprueba tu conexión de red y vuelve a intentarlo.',
+  settingsSignedOutTitle: 'No has iniciado sesión en DeepSeek Harness',
+  settingsSignedOutDescription: 'Inicia sesión en DeepSeek Harness para obtener tu clave API dedicada',
+  signInDescription: 'Usa tu cuenta de DeepSeek para comenzar.',
+  profileUnavailable: 'Los datos de la cuenta no están disponibles en este momento.',
+  balance: 'Saldo recargado', bonusBalance: 'Saldo concedido', balanceUnavailable: 'Ver en la plataforma', balanceSignedOut: 'Inicia sesión para ver',
+  accountInfo: 'Más información de la cuenta', more: 'Más', usage: 'Ver uso', topUp: 'Recargar',
+  quotaTitle: 'No hay saldo disponible',
+  quotaDescription: 'DeepSeek Harness no puede iniciar una nueva tarea con esta cuenta si no hay saldo disponible. ¿Deseas recargar? También puedes hacerlo más tarde en Configuración → Cuenta.',
+  quotaTopUp: 'Recargar',
+  bonusNoticeTitle: 'Bonificación acreditada',
 }

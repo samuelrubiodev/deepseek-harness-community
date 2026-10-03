@@ -50,3 +50,18 @@ export const en = {
   'time.months': '{n}mo',
   'time.years': '{n}y',
 } satisfies Record<ReferenceKey, string>
+
+/** Spanish dictionary, checked complete against the zh key set. */
+export const es = {
+  'section.files': 'Archivos y carpetas',
+  'section.subagents': 'Subagentes',
+  'section.sessions': 'Sesiones',
+  'candidate.noCwd': '(sin directorio de trabajo)',
+  'crumb.root': 'Espacio de trabajo',
+  'time.now': 'ahora',
+  'time.minutes': '{n}min',
+  'time.hours': '{n}h',
+  'time.days': '{n}d',
+  'time.months': '{n}m',
+  'time.years': '{n}a',
+} satisfies Record<ReferenceKey, string>

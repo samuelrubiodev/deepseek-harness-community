@@ -40,6 +40,23 @@ export const zh: Record<AgentLoopSettingsLocaleKey, string> = {
   invalidNumber: '请填数字；留空表示使用默认值。',
 }
 
+/** Spanish copy. */
+export const es: Record<AgentLoopSettingsLocaleKey, string> = {
+  title: 'Bucle del agente',
+  description: 'Controla cómo el agente despacha las llamadas a herramientas.',
+  maxParallel: 'Llamadas paralelas a herramientas',
+  maxParallelHint: 'Límite superior de llamadas seguras en paralelo ejecutadas simultáneamente en un solo paso.',
+  overridden: 'Anulado',
+  reset: 'Restablecer valores predeterminados',
+  readOnly: 'Esta implementación almacena la configuración en modo de solo lectura.',
+  unavailable: 'Este complemento no está cargado, por lo que no se puede configurar en este momento.',
+  save: 'Guardar',
+  saving: 'Guardando…',
+  saveFailed: 'La implementación no aceptó estos valores; se han mantenido para que los corrijas.',
+  invalidNumber: 'Ingresa un número o deja en blanco para usar el valor predeterminado.',
+}
+
+
 /**
  * The form frame's copy, read from this page's dictionary.
  * @param t - the page's locale reader.

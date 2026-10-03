@@ -2,7 +2,7 @@
  * `schedule.catalog` namespace dictionaries: the Session header catalog and the
  * Sidebar row mark with its hover-card task section.
  */
-import { frequencyEn, frequencyZh } from './frequency-locales.ts'
+import { frequencyEn, frequencyEs, frequencyZh } from './frequency-locales.ts'
 
 /** Dictionary namespace owned by this plugin. */
 export const NS = 'schedule.catalog'
@@ -47,6 +47,27 @@ export const en: Record<ScheduleCatalogKey, string> = {
   ...frequencyEn,
   'mark.aria': '{count} scheduled tasks',
   'hover.more': '{count} more',
+}
+
+/** Spanish dictionary, key-identical to the Chinese source of truth. */
+export const es: Record<ScheduleCatalogKey, string> = {
+  'trigger.label': 'Recordatorios',
+  'list.loading': 'Cargando recordatorios…',
+  'list.error': 'No se pudieron cargar los recordatorios.',
+  'list.retry': 'Reintentar',
+  'delete.action': 'Eliminar',
+  'delete.pending': 'Eliminando…',
+  'delete.label': 'Eliminar recordatorio: {title}',
+  'list.open': 'Abrir detalles del recordatorio: {title}',
+  'trigger.one': '{count} recordatorio',
+  'trigger.other': '{count} recordatorios',
+  'list.aria': 'Recordatorios activos',
+  'list.nextRun': 'Próxima ejecución',
+  'frequency.once': 'Una vez',
+  'frequency.every': 'Cada {value} {unit}',
+  ...frequencyEs,
+  'mark.aria': '{count} tareas programadas',
+  'hover.more': '{count} más',
 }
 
 /** Key domain of the Schedule catalog namespace. */

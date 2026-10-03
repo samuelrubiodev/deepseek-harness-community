@@ -25,6 +25,19 @@ export const en = {
   retry: 'Retry',
 } satisfies Record<ExcelPreviewKey, string>
 
+/** Spanish Excel preview copy. */
+export const es = {
+  title: 'Hoja de cálculo', language: 'es', loading: 'Renderizando documento...',
+  invalid: 'No se pudo abrir esta hoja de cálculo. Comprueba su formato, contenido o protección por contraseña.',
+  tooLarge: 'Este libro de trabajo supera el límite de tamaño de vista previa.', timeout: 'Se agotó el tiempo de espera al abrir este libro. Prueba con un archivo más pequeño.',
+  encoding: 'No se pudo leer esta codificación de texto. Guarda el archivo como UTF-8 o UTF-16 con BOM y vuelve a intentarlo.',
+  formulaWarning: 'Este libro contiene fórmulas. Los resultados mostrados pueden faltar o ser inexactos.',
+  unsupportedNotice: 'Esta vista previa no admite {features} en este libro. Ábrelo en una aplicación del sistema para la experiencia completa.',
+  charts: 'gráficos', images: 'imágenes', shapes: 'formas', conditionalFormatting: 'formato condicional', featureSeparator: ', ',
+  retry: 'Reintentar',
+} satisfies Record<ExcelPreviewKey, string>
+
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Excel preview status and third-party locale selection. */

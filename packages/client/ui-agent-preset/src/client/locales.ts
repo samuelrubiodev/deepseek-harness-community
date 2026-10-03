@@ -1,6 +1,4 @@
-/** Locale bundles for the agent-preset hero chip, header label, and management section. */
-
-import { guideEn, guideZh, type PresetGuideKey } from './guide-locales.ts'
+import { guideEn, guideEs, guideZh, type PresetGuideKey } from './guide-locales.ts'
 
 /** Locale keys these surfaces render. */
 export type AgentPresetSettingsKey =
@@ -119,6 +117,51 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   createPluginMissing: '当前配置未提供创造模式',
 
 }
+
+/** Spanish copy. */
+export const es: Record<AgentPresetSettingsKey, string> = {
+  ...guideEs,
+  builtInGroup: 'Integrado', customGroup: 'Personalizado',
+  sectionIntro: 'Elige las herramientas del agente y cómo trabaja. Usa el modo Estándar para tareas cotidianas, o el modo Creador para añadir capacidades a DSH.',
+
+  seatHint: 'Elige el preajuste del agente para tu nueva tarea',
+  headerHint: 'El preajuste del agente elegido al iniciar esta tarea',
+  nav: 'Preajustes del agente',
+
+  setDefault: 'Establecer como predeterminado para nuevas tareas',
+  view: 'Ver configuración',
+
+  presetStandardName: 'Modo Estándar',
+  presetStandardDescription:
+    'Trabaja con código, archivos e información. Adecuado para la mayoría de tareas, con búsqueda, edición, comandos de terminal y otras herramientas disponibles según sea necesario.',
+  presetPtcName: 'Modo PTC',
+  presetPtcDescription:
+    'Incluye todas las capacidades del modo Estándar. Más adecuado para tareas que invocan herramientas por lotes y luego filtran, organizan, desduplican, cuentan o resumen los resultados.',
+  presetMinimalName: 'Modo Mínimo',
+  presetMinimalDescription:
+    'El agente trabaja utilizando únicamente una herramienta de terminal. Útil para probar y comparar su rendimiento básico.',
+  presetCordisName: 'Modo Creador',
+  presetCordisDescription:
+    'Personaliza DSH a través de conversaciones. Permite que el agente escriba complementos para añadir funciones o interfaz, o combine herramientas e instrucciones para crear tu propio modo.',
+
+  inUse: 'Predeterminado para nuevas tareas',
+
+  noDescription: 'Sin descripción.',
+  brokenBadge: 'Error al cargar',
+
+  switchRefused: 'No se pudo cambiar a {name}: {reason}',
+  standardUnavailable: 'El modo Estándar no está disponible. Restáuralo o elige otro modo disponible.',
+
+  close: 'Cerrar',
+
+  creatorDraft: 'Pedir al agente que me ayude a crear un preajuste',
+  createPlugin: 'Pedir al agente que cree un complemento',
+  createPluginDescription: 'Entra en el modo Creador y crea tu propio complemento de DSH',
+  createPluginChecking: 'Comprobando si el modo Creador está disponible',
+  createPluginUnavailable: 'Temporalmente no disponible. Vuelve a abrir este menú para reintentar',
+  createPluginMissing: 'El modo Creador no está incluido en esta configuración',
+}
+
 
 // The resolution itself is the shared fold in `dsh-agent-preset-registry/display`,
 // re-exported here so every surface in this plugin reads one path; the

@@ -89,5 +89,48 @@ export const en: Record<SubagentKey, string> = {
   'readonly.body': 'The parent session is offline; reopen it to continue sending messages.',
 }
 
+/** Spanish dictionary, key-identical to the Chinese source of truth. */
+export const es: Record<SubagentKey, string> = {
+  'duration.seconds': '{seconds}s',
+  'duration.minutes': '{minutes}m {seconds}s',
+  'duration.hours': '{hours}h {minutes}m {seconds}s',
+  'duration.days': '{days}d',
+  'duration.daysHours': '{days}d {hours}h',
+  'duration.months': '~{months}m',
+  'duration.monthsDays': '~{months}m {days}d',
+  'duration.years': '~{years}a',
+  'duration.yearsMonths': '~{years}a {months}m',
+  'duration.exactDays': '{days}d {hours}h {minutes}m {seconds}s',
+  'duration.exactTitle': 'Duración activa total: {duration}',
+  'tokens.thousand': '{value}K',
+  'tokens.million': '{value}M',
+  'tokens.total': '{value} tok',
+  'loading.label': 'Cargando subagentes…',
+  'load.error': 'No se pudieron cargar los subagentes',
+  'retry': 'Reintentar',
+  'mode.oneShot': 'de un solo uso',
+  'mode.continuable': 'continuable',
+  'mode.unknown': 'modo desconocido',
+  'readonly.unknown.body': 'Lee la sesión secundaria para determinar si se puede continuar.',
+  'activity.running': 'en ejecución',
+  'activity.completed': 'completado',
+  'activity.inactive': 'inactivo',
+  'branch.collapse': 'Contraer descendientes de {label}',
+  'branch.expand': 'Expandir descendientes de {label}',
+  'count.total.one': '{count} subagente',
+  'count.total.other': '{count} subagentes',
+  'count.running.one': '{count} subagente en ejecución',
+  'count.running.other': '{count} subagentes en ejecución',
+  'switcher.aria': 'Cambiar de subagente: {title}',
+  'tree.aria': 'Sesiones de subagentes',
+  'open.sidebar': 'Abrir en la barra lateral',
+  'open.sidebar.aria': 'Abrir {label} en la barra lateral',
+  'sidebar.chat': 'Chat',
+  'readonly.oneShot.title': 'Registro de subagente de un solo uso',
+  'readonly.title': 'Este subagente es de solo lectura por ahora',
+  'readonly.oneShot.body': 'Las tareas de un solo uso no aceptan mensajes de seguimiento; revisa el registro de ejecución completo aquí.',
+  'readonly.body': 'La sesión principal está desconectada; vuelve a abrirla para continuar enviando mensajes.',
+}
+
 /** Key domain of the `subagent` namespace (zh is the source of truth). */
 export type SubagentKey = keyof typeof zh

@@ -44,3 +44,24 @@ export const en = {
   'chip.on.title': 'Plan mode on — click to turn off (/plan off)',
   'chip.exitFailed': 'Failed to exit plan mode',
 } satisfies Record<PlanKey, string>
+
+/** Spanish dictionary, checked complete against the zh key set. */
+export const es = {
+  'chip.label': 'Plan',
+  'preview.title': 'Plan',
+  'preview.document': 'Plan · Markdown',
+  'preview.action': 'Abrir',
+  'preview.open': 'Abrir plan en barra lateral',
+  'preview.full': 'Ver plan completo',
+  'preview.openNamed': 'Abrir plan: {title}',
+  'preview.loading': 'Cargando plan…',
+  'preview.failed': 'No se pudo cargar el plan',
+  'preview.invalidAddress': 'Dirección de plan no válida',
+  'preview.historyUnavailable': 'Historial de sesión no disponible',
+  'preview.notFound': 'No se encontró este plan',
+  'preview.unavailable': 'Vista previa del plan no disponible',
+  'preview.expired': 'Esta vista previa temporal del plan ha caducado. Vuelva a abrirla desde la tarjeta de revisión pendiente.',
+  'chip.on.aria': 'Modo plan activado, pulsa para desactivar',
+  'chip.on.title': 'Modo plan activado — clic para desactivar (/plan off)',
+  'chip.exitFailed': 'Error al salir del modo plan',
+} satisfies Record<PlanKey, string>

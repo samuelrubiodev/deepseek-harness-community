@@ -20,3 +20,12 @@ export const en = {
   reject: 'Reject',
   allowOnce: 'Allow once',
 } satisfies Record<ApprovalKey, string>
+
+/** Spanish dictionary, checked against the Chinese key set. */
+export const es = {
+  waiting: 'Esperando aprobación',
+  'detail.aria': 'Detalles de la aprobación',
+  escalation: 'La herramienta {toolName} solicita ejecución con privilegios',
+  reject: 'Rechazar',
+  allowOnce: 'Permitir una vez',
+} satisfies Record<ApprovalKey, string>

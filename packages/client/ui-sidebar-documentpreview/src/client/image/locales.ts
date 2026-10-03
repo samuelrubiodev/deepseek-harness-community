@@ -1,4 +1,4 @@
-import { zoomEn, zoomZh } from '../zoom/locales.ts'
+import { zoomEn, zoomEs, zoomZh } from '../zoom/locales.ts'
 
 /** Locale-owned image renderer labels and status text. */
 export const zh = {
@@ -22,6 +22,17 @@ export const en = {
   failed: 'This image could not be displayed.',
   unsupported: 'Image preview requires the complete file contents.',
 } satisfies Record<ImagePreviewKey, string>
+
+/** Spanish dictionary with the same keys as the Chinese dictionary. */
+export const es = {
+  ...zoomEs,
+  title: 'Imagen',
+  preview: 'Vista previa de imagen: {name}',
+  loading: 'Renderizando documento...',
+  failed: 'No se pudo mostrar esta imagen.',
+  unsupported: 'La vista previa de imágenes requiere el contenido completo del archivo.',
+} satisfies Record<ImagePreviewKey, string>
+
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {

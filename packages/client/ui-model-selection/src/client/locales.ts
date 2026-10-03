@@ -64,3 +64,30 @@ export const en = {
   'empty.models': 'No models available.',
   'empty.efforts': 'This model provides no reasoning effort levels.',
 } satisfies Record<ModelKey, string>
+
+/** Spanish dictionary, checked complete against the zh key set. */
+export const es = {
+  'provider.account': 'Cuenta DeepSeek',
+  'command.label': 'Modelo',
+  'command.description': 'Selecciona el modelo para esta conversación',
+  'option.loadError': 'Error al cargar el catálogo: {message}',
+  'trigger.fallback': 'Seleccionar modelo',
+  'trigger.loading': 'Cargando modelos…',
+  'trigger.selectAria': 'Seleccionar modelo',
+  'trigger.aria': 'Seleccionar modelo, actual {model}',
+  'trigger.ariaEffort': 'Seleccionar modelo, actual {model}, esfuerzo de razonamiento {effort}',
+  'menu.aria': 'Modelo y esfuerzo de razonamiento',
+  'menu.model': 'Modelo',
+  'menu.effort': 'Esfuerzo',
+  'effort.providerDefault': 'Predeterminado',
+  'status.loading': 'Actualizando lista de modelos…',
+  'error.action': 'Error en la operación del modelo: {message}',
+  'error.sessionInUse': 'Esta sesión ya está en uso, posiblemente por otra instancia de DSH en ejecución (como dsh web o la aplicación de escritorio). Cierre las otras instancias de DSH e inténtelo de nuevo.',
+  'action.reload': 'Recargar',
+  'warning.groupLoad': 'Error al cargar {name}: {message}',
+  'search.placeholder': 'Buscar modelos…',
+  'search.clear': 'Limpiar búsqueda',
+  'search.empty': 'No hay modelos coincidentes.',
+  'empty.models': 'No hay modelos disponibles.',
+  'empty.efforts': 'Este modelo no proporciona niveles de esfuerzo de razonamiento.',
+} satisfies Record<ModelKey, string>

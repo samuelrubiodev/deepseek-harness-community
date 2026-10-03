@@ -77,5 +77,25 @@ export const en: Record<OpenInAppKey, string> = {
   'app.terminal': 'Terminal',
 }
 
+/** Spanish dictionary, key-identical to the Chinese source of truth. */
+export const es: Record<OpenInAppKey, string> = {
+  'open.title': 'Abrir en {app}',
+  'path.appDefault': '{app} (predeterminado)',
+  'path.appsError': 'No se pudieron cargar las aplicaciones',
+  'shortcut.busy': 'Abriendo espacio de trabajo',
+  'shortcut.unavailable': 'Espacio de trabajo o aplicación local no disponible',
+  'open.tooltip': 'Abrir localmente',
+  'path.open': 'Abrir',
+  'path.more': 'Más formas de abrir',
+  'path.reveal': 'Mostrar ubicación del archivo',
+  'path.openError': 'No se pudo abrir. Inténtalo de nuevo.',
+  'path.revealError': 'No se pudo mostrar la ubicación del archivo. Inténtalo de nuevo.',
+  ...PRODUCT_NAMES,
+  'app.finder': 'Finder',
+  'app.explorer': 'Explorador de archivos',
+  'app.filemanager': 'Archivos',
+  'app.terminal': 'Terminal',
+}
+
 /** Key domain of the `open-in-app` namespace (zh is the source of truth). */
 export type OpenInAppKey = keyof typeof zh

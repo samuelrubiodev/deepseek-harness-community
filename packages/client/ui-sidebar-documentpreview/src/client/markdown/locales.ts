@@ -17,6 +17,15 @@ export const en = {
   'footnotes': 'Footnotes',
 } satisfies Record<MarkdownPreviewKey, string>
 
+/** Spanish labels, paired with the Chinese key set. */
+export const es = {
+  'viewer.label': 'Markdown',
+  'code.copy': 'Copiar',
+  'code.copied': 'Copiado',
+  'footnotes': 'Notas al pie',
+} satisfies Record<MarkdownPreviewKey, string>
+
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Markdown document renderer and its code/footnote controls. */

@@ -89,5 +89,48 @@ export const en: Record<JobKey, string> = {
   'terminal.expandAria': 'Expand {n} collapsed output lines',
 }
 
+/** Spanish dictionary, key-identical to the Chinese source of truth. */
+export const es: Record<JobKey, string> = {
+  'count.live.one': '{count} tarea en segundo plano en ejecución',
+  'count.live.other': '{count} tareas en segundo plano en ejecución',
+  'count.idle.one': '{count} tarea en segundo plano',
+  'count.idle.other': '{count} tareas en segundo plano',
+  'list.aria': 'Tareas en segundo plano',
+  'section.live': 'En ejecución',
+  'section.settledCount': 'Finalizadas {count}',
+  'section.clear': 'Limpiar',
+  'row.expandAria': 'Mostrar salida en directo de {label}',
+  'row.collapseAria': 'Ocultar salida en directo de {label}',
+  'kill.stop': 'Detener tarea {label}',
+  'kill.confirm': 'Haz clic de nuevo para confirmar',
+  'kill.confirmAction': 'Confirmar detención',
+  'kill.failed': 'Error al detener',
+  'status.running': 'en ejecución',
+  'status.stopping': 'deteniendo',
+  'status.completed': 'completada',
+  'status.killed': 'cancelada',
+  'status.failed': 'fallida',
+  'duration.seconds': '{seconds}s',
+  'duration.minutes': '{minutes}m {seconds}s',
+  'duration.hours': '{hours}h {minutes}m',
+  'duration.title.live': 'En ejecución durante {duration}',
+  'duration.title.done': 'Duró {duration}',
+  'output.gap': '… salida anterior descartada …',
+  'output.error': 'flujo de salida en directo interrumpido: {error}',
+  'terminal.signal': 'señal {signal}',
+  'terminal.exitCode': 'código de salida {code}',
+  'terminal.noExitCode': 'sin código de salida',
+  'terminal.running': 'en ejecución',
+  'terminal.failed': 'fallida',
+  'terminal.done': 'completada',
+  'terminal.copy': 'Copiar',
+  'terminal.copied': 'Copiado',
+  'terminal.noOutput': '(sin salida)',
+  'terminal.collapse': 'Contraer',
+  'terminal.collapseAria': 'Contraer salida',
+  'terminal.expand': 'Mostrar {n} líneas más',
+  'terminal.expandAria': 'Expandir {n} líneas de salida contraídas',
+}
+
 /** Key domain of the `job` namespace (zh is the source of truth). */
 export type JobKey = keyof typeof zh
