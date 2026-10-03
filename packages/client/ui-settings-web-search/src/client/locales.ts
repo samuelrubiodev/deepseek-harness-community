@@ -54,6 +54,29 @@ export const zh: Record<WebSearchSettingsLocaleKey, string> = {
   invalidNumber: '请填数字；留空表示使用默认值。',
 }
 
+/** Spanish copy. */
+export const es: Record<WebSearchSettingsLocaleKey, string> = {
+  title: 'Búsqueda web',
+  description: 'Configura el proveedor de búsqueda de DeepSeek.',
+  apiKey: 'Clave API',
+  apiKeyHint: 'No se guarda en el archivo de configuración. Deja en blanco para conservar la clave actual.',
+  apiKeySet: 'Hay una clave configurada.',
+  apiKeyUnset: 'No hay ninguna clave configurada; solo las conversaciones que utilicen un modelo de Cuenta DeepSeek pueden buscar, mediante el endpoint predeterminado.',
+  baseUrl: 'Endpoint',
+  baseUrlHint: 'Deja en blanco para usar el valor predeterminado del proveedor.',
+  maxUses: 'Búsquedas máximas por solicitud',
+  maxUsesHint: 'Cuántas veces puede buscar una solicitud antes de tener que responder.',
+  overridden: 'Anulado',
+  reset: 'Restablecer valores predeterminados',
+  readOnly: 'Esta implementación almacena la configuración en modo de solo lectura.',
+  unavailable: 'Este complemento no está cargado, por lo que no se puede configurar en este momento.',
+  save: 'Guardar',
+  saving: 'Guardando…',
+  saveFailed: 'La implementación no aceptó estos valores; se han mantenido para que los corrijas.',
+  invalidNumber: 'Ingresa un número o deja en blanco para usar el valor predeterminado.',
+}
+
+
 /**
  * The form frame's copy, read from this page's dictionary.
  * @param t - the page's locale reader.

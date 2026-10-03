@@ -10,7 +10,7 @@ import { LocaleSettingsFields } from './locale-settings.ts'
 
 export {
   LOCALE_IDS, LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE,
-  type BuiltInLocaleId, type LocaleId, type LocaleSettings,
+  type BuiltInLocaleId, type CoreLocaleId, type LocaleId, type LocaleSettings,
 } from './locale-settings.ts'
 
 /** Runtime preferences projected to the browser. */

@@ -13,3 +13,11 @@ export const zh: Record<keyof typeof en, string> = {
   saved: '设置已保存',
   failed: '无法保存设置',
 }
+
+/** Spanish preference copy. */
+export const es: Record<keyof typeof en, string> = {
+  title: 'Subir Session Log al usar la API oficial de modelos',
+  description: 'Ayuda a mejorar los modelos y productos de DeepSeek.',
+  saved: 'Preferencia guardada',
+  failed: 'No se pudo guardar la preferencia',
+}

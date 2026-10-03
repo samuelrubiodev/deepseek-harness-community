@@ -80,6 +80,8 @@ describe('document language', () => {
     // `en` needs no region; `zh` names its script variant, which bare `zh`
     // leaves ambiguous for pronunciation and font selection.
     expect(langOf()).toBe('en')
+    locale.setLocale('es')
+    expect(langOf()).toBe('es-ES')
     locale.setLocale('zh')
     expect(langOf()).toBe('zh-CN')
   })

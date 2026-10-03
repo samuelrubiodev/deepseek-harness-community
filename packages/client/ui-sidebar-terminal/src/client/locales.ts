@@ -42,3 +42,21 @@ export const en = {
   invalidOutput: 'The terminal screen could not be received. Reconnect to recover it.',
   terminalLimit: 'The terminal limit has been reached. Close unused terminals and try again. Exited terminals also count toward the limit.',
 } satisfies Record<keyof typeof zh, string>
+
+/** Spanish terminal copy. */
+export const es = {
+  'shortcut.noSession': 'Selecciona una sesión primero',
+  recoveryFailed: 'Error al recuperar el terminal: {message}', retryRecovery: 'Reintentar recuperación del terminal',
+  shell: 'Elegir shell', shellLoading: 'Cargando shells…', shellEmpty: 'No hay shells disponibles', description: 'Ejecutar comandos en el espacio de trabajo de la sesión',
+  title: 'Terminal', new: 'Nuevo terminal', loading: 'Leyendo entorno del terminal…', creating: 'Iniciando…',
+  connecting: 'Conectando…', disconnected: 'Desconectado.', reconnect: 'Reconectar',
+  readonly: 'Esta vista es de solo lectura.', control: 'Tomar el control',
+  closed: 'Terminal cerrado.', exited: 'Proceso finalizado ({code})', failed: 'Error del terminal: {message}',
+  rename: 'Nombre del terminal', unavailable: 'No disponible', retry: 'Reintentar',
+  cleanupFailed: 'No se pudo finalizar el terminal «{title}»: {message}',
+  missingTerminal: 'Este terminal ya no existe. Abre un nuevo terminal.',
+  inputFull: 'El búfer de entrada está lleno. Reconéctate e inténtalo de nuevo.',
+  attachmentEnded: 'La conexión del terminal ha finalizado. Reconéctate para continuar.',
+  invalidOutput: 'No se pudo recibir la pantalla del terminal. Reconéctate para recuperarla.',
+  terminalLimit: 'Se ha alcanzado el límite de terminales. Cierra los terminales que no uses e inténtalo de nuevo. Los terminales finalizados también cuentan para el límite.',
+} satisfies Record<keyof typeof zh, string>

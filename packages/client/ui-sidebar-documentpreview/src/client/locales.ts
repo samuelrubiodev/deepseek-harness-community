@@ -60,3 +60,29 @@ export const en = {
   'error.unavailable': 'Read failed: {message}',
   retry: 'Retry',
 } satisfies Record<SidebarDocumentPreviewKey, string>
+
+/** Spanish dictionary, checked against the Chinese key set. */
+export const es = {
+  loading: 'Renderizando documento...',
+  loadMore: 'Cargar más',
+  changed: 'El archivo ha cambiado; mostrando el contenido anterior.',
+  reloadNow: 'Recargar',
+  reload: 'Leer el archivo de nuevo',
+  autoRefresh: 'Actualización automática',
+  'autoRefresh.enable': 'Activar actualización automática',
+  'autoRefresh.disable': 'Desactivar actualización automática',
+  'wrap.enable': 'Activar ajuste de línea',
+  'wrap.disable': 'Desactivar ajuste de línea',
+  'wrap.aria': 'Ajuste de línea',
+  openWith: 'Abrir con',
+  'viewer.text': 'Texto plano',
+  resourceUnavailable: 'El servicio de recursos de archivo no está disponible.',
+  rendererUnavailable: 'La vista previa de {name} no está disponible.',
+  unsupportedFile: 'La vista previa aún no está disponible para este tipo de archivo.',
+  'error.notFound': 'Archivo no encontrado. Puede haber sido movido o eliminado.',
+  'error.tooLarge': 'Esta página supera el límite de {limit} y no se puede leer.',
+  'error.notText': 'La vista previa aún no está disponible para este tipo de archivo.',
+  'error.notRegularFile': 'No es un archivo normal; no hay nada que mostrar.',
+  'error.unavailable': 'Error al leer: {message}',
+  retry: 'Reintentar',
+} satisfies Record<SidebarDocumentPreviewKey, string>

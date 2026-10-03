@@ -45,6 +45,25 @@ export const zh: Record<ShellSettingsLocaleKey, string> = {
   invalidNumber: '请填数字；留空表示使用默认值。',
 }
 
+/** Spanish copy. */
+export const es: Record<ShellSettingsLocaleKey, string> = {
+  title: 'Terminal',
+  description: 'Limita cuánto tiempo puede ejecutarse cada comando y cuánto puede generar.',
+  timeoutMs: 'Tiempo de espera del comando (ms)',
+  timeoutMsHint: 'Cuánto tiempo puede ejecutarse un comando antes de ser finalizado.',
+  maxOutputBytes: 'Límite de salida por flujo (bytes)',
+  maxOutputBytesHint: 'La salida que supere este límite se transfiere a un archivo temporal en lugar de perderse.',
+  overridden: 'Anulado',
+  reset: 'Restablecer valores predeterminados',
+  readOnly: 'Esta implementación almacena la configuración en modo de solo lectura.',
+  unavailable: 'Este complemento no está cargado, por lo que no se puede configurar en este momento.',
+  save: 'Guardar',
+  saving: 'Guardando…',
+  saveFailed: 'La implementación no aceptó estos valores; se han mantenido para que los corrijas.',
+  invalidNumber: 'Ingresa un número o deja en blanco para usar el valor predeterminado.',
+}
+
+
 /**
  * The form frame's copy, read from this page's dictionary.
  * @param t - the page's locale reader.

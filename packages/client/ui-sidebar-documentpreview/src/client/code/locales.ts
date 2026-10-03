@@ -21,3 +21,10 @@ export const en = {
   copy: 'Copy',
   copied: 'Copied',
 } satisfies Record<keyof typeof zh, string>
+
+/** Spanish dictionary with the same keys. */
+export const es = {
+  title: 'Código',
+  copy: 'Copiar',
+  copied: 'Copiado',
+} satisfies Record<keyof typeof zh, string>

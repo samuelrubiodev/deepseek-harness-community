@@ -20,3 +20,12 @@ export const en = {
   'toggle.collapse': 'Collapse sidebar',
   'panels.label': 'Global panels',
 } satisfies Record<SidebarKey, string>
+
+/** Spanish dictionary, checked complete against the zh key set. */
+export const es = {
+  'session.new': 'Nueva sesión',
+  'session.new.label': 'Nueva sesión',
+  'toggle.open': 'Abrir barra lateral',
+  'toggle.collapse': 'Contraer barra lateral',
+  'panels.label': 'Paneles globales',
+} satisfies Record<SidebarKey, string>

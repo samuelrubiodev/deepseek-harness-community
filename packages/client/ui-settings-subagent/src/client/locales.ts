@@ -99,6 +99,46 @@ export const zh: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionOff: '关闭后，子智能体使用配置的默认模型或继承父 Agent 的模型；已选模型会保留。',
 }
 
+/** Spanish copy. */
+export const es: Record<SubagentSettingsLocaleKey, string> = {
+  overridden: 'Anulado',
+  reset: 'Restablecer valores predeterminados',
+  readOnly: 'Esta implementación almacena la configuración en modo de solo lectura.',
+  unavailable: 'Este complemento no está cargado, por lo que no se puede configurar en este momento.',
+  save: 'Guardar',
+  saving: 'Guardando…',
+  saveFailed: 'La implementación no aceptó estos valores; se han mantenido para que los corrijas.',
+  subagentTitle: 'Subagente',
+  subagentDescription: 'Configura la profundidad de recursión, el recuento y los modelos del subagente.',
+  subagentLimitsTitle: 'Límites',
+  subagentMaxDepth: 'Profundidad máxima de recursión',
+  subagentDepthHelpLabel: 'Acerca de la profundidad máxima de recursión',
+  subagentDepthHelp: 'Limita cuántos niveles de subagentes puede crear un agente.',
+  subagentDepthZero: 'Desactivar subagentes',
+  subagentDepthOne: 'Solo el agente principal puede crear subagentes',
+  subagentDepthOverride: 'Si una herramienta define su propia profundidad máxima de recursión, esa configuración tiene prioridad.',
+  subagentMaxActive: 'Límite de paralelismo de subagentes',
+  subagentCapacityHelpLabel: 'Acerca del límite de paralelismo de subagentes',
+  subagentCapacityHelp: 'Total de subagentes activos bajo el mismo agente principal, en todos los niveles de recursión. Se excluye el agente principal. Las nuevas solicitudes de inicio se rechazan al alcanzar el límite.',
+  subagentDepthInvalid: 'Ingresa un número entero mayor o igual a 0.',
+  subagentCapacityInvalid: 'Ingresa un número entero mayor o igual a 1.',
+  subagentModelSelectionTitle: 'Selección de modelos',
+  subagentModelSelectionToggle: 'Permitir que los agentes elijan modelos para los subagentes',
+  subagentModelSelectionChoose: 'Cuando está habilitado, los agentes pueden elegir un proveedor, modelo y esfuerzo de razonamiento para cada subagente entre los modelos autorizados a continuación. Se aplica solo a nuevas sesiones.',
+  subagentModelSelectionAllowed: 'Modelos que los agentes pueden elegir',
+  subagentModelSelectionLoading: 'Cargando modelos…',
+  subagentModelSelectionLoadFailed: 'No se pudieron cargar los modelos.',
+  subagentModelSelectionRetry: 'Reintentar',
+  subagentModelSelectionPartial: 'No se pudieron cargar algunos proveedores de modelos; las opciones guardadas aún se pueden eliminar.',
+  subagentModelSelectionUnavailable: 'Actualmente no disponible',
+  subagentModelSelectionUnavailableGroup: 'Guardado pero actualmente no disponible',
+  subagentModelSelectionEmpty: 'Ningún proveedor de modelos anuncia un modelo actualmente.',
+  subagentModelSelectionRequired: 'Selecciona al menos un modelo antes de guardar.',
+  subagentModelSelectionConflict: 'La configuración cambió en otro lugar. Descarta el borrador e inténtalo de nuevo.',
+  subagentModelSelectionOff: 'Los subagentes usan los valores predeterminados configurados o heredan el modelo del agente principal. Se conservan las opciones de modelos guardadas.',
+}
+
+
 /**
  * The form frame's copy, read from this page's dictionary.
  * @param t - the page's locale reader.

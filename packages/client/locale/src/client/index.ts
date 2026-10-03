@@ -18,11 +18,11 @@ import { parseLocaleBootstrap, type LocaleBootstrap, type LocaleBridge } from '.
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import {
   LOCALE_ID_PATTERN, LOCALE_IDS, LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE,
-  type BuiltInLocaleId, type LocaleId, type LocaleSettings,
+  type BuiltInLocaleId, type CoreLocaleId, type LocaleId, type LocaleSettings,
 } from '../locale-settings.ts'
-import { en, zh, type CommonKey } from '../locales/index.ts'
+import { en, es, zh, type CommonKey } from '../locales/index.ts'
 import {
-  en as settingsEn, zh as settingsZh, type SettingsLocaleKey,
+  en as settingsEn, es as settingsEs, zh as settingsZh, type SettingsLocaleKey,
 } from '../locales/settings.ts'
 import type { LanguageRowInjected } from './LanguageRow.tsx'
 import { LanguageRow } from './LanguageRow.tsx'
@@ -31,7 +31,7 @@ import { createLanguageRowStore } from './settings-store.ts'
 export type { LanguageRowComponentProps, LanguageRowInjected } from './LanguageRow.tsx'
 export type { LanguageOptionRow, LanguageRowState } from './settings-store.ts'
 export type { CommonKey } from '../locales/index.ts'
-export type { BuiltInLocaleId, LocaleId, LocaleSettings } from '../locale-settings.ts'
+export type { BuiltInLocaleId, CoreLocaleId, LocaleId, LocaleSettings } from '../locale-settings.ts'
 
 // The translate currency lives in ui-slots (the render machinery synthesizes
 // the seat); re-exported here so dictionary owners import one package.
@@ -114,10 +114,11 @@ export const COMMON_NS = 'common'
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.locale'
 
-/** The two locales and dictionaries shipped by this package. */
+/** The locales and dictionaries shipped by this package. */
 const BUILT_IN_LOCALE_METADATA = {
   zh: { label: '中文', fallback: 'en' },
   en: { label: 'English' },
+  es: { label: 'Español', fallback: 'en' },
 } as const satisfies Record<BuiltInLocaleId, Omit<LocaleDefinition, 'id'>>
 const BUILT_IN_LOCALES: readonly LocaleDefinition[] = Object.freeze(
   LOCALE_IDS.map(id => Object.freeze({ id, ...BUILT_IN_LOCALE_METADATA[id] })),
@@ -148,7 +149,7 @@ function normalizeLanguage(input: LanguageRegistration): Readonly<LanguageRegist
 function syncDocumentLanguage(snapshot: LocaleSnapshot): void {
   // Non-browser runs (node boots of the client tree) have no document.
   if (typeof document === 'undefined') return
-  const language = snapshot.active === 'zh' ? 'zh-CN' : snapshot.active
+  const language = snapshot.active === 'zh' ? 'zh-CN' : snapshot.active === 'es' ? 'es-ES' : snapshot.active
   if (document.documentElement.lang !== language) document.documentElement.lang = language
 }
 
@@ -383,10 +384,13 @@ export class LocaleRuntime {
    * namespace's texts have one owner). Registration bumps the revision so
    * mounted outlets pick up late-arriving dictionaries.
    * @param ns - a namespace merged into LocaleNamespaceMap.
-   * @param dicts - complete dictionaries keyed by built-in locale id.
+   * @param dicts - complete dictionaries keyed by core locale id and optionally built-in locale id.
    * @returns disposer removing every locale registered by this call (idempotent).
    */
-  register<N extends Extract<keyof LocaleNamespaceMap, string>>(ns: N, dicts: Record<BuiltInLocaleId, LocaleDictOf<N>>): () => void
+  register<N extends Extract<keyof LocaleNamespaceMap, string>>(
+    ns: N,
+    dicts: Record<CoreLocaleId, LocaleDictOf<N>> & Partial<Record<BuiltInLocaleId, LocaleDictOf<N>>>,
+  ): () => void
   /**
    * Single-locale untyped form for language-pack contributions and namespaces
    * outside the merge table.
@@ -576,8 +580,8 @@ export async function apply(ctx: ClientContext): Promise<void> {
   }
   const host = ctx.configForms.get<LocaleSettings>(LOCALE_SETTINGS_NAMESPACE)
   const locale = new LocaleRuntime(ctx, host, bootstrap)
-  locale.register(COMMON_NS, { zh, en })
-  locale.register(SETTINGS_NS, { zh: settingsZh, en: settingsEn })
+  locale.register(COMMON_NS, { zh, en, es })
+  locale.register(SETTINGS_NS, { zh: settingsZh, en: settingsEn, es: settingsEs })
   ctx.provide('locale', locale)
   if (bridge !== undefined) {
     ctx.on('locale/change', (snapshot) => { bridge.onChange(snapshot.active) })

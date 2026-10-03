@@ -38,3 +38,22 @@ export const en = {
   busy: 'Office preview is busy. Try again shortly.',
   changed: 'The file changed while being read. Reopen the preview.',
 } satisfies Record<OfficePreviewKey, string>
+
+/** Spanish translations checked against the Chinese key set. */
+export const es = {
+  title: 'Documento de Office',
+  loading: 'Renderizando documento...',
+  retry: 'Reintentar',
+  viewMissingFonts: 'Faltan {count} fuentes. Haz clic para verlas.',
+  missingFontsTitle: 'Fuentes ausentes',
+  missingFontsDescription: 'Estas fuentes no están disponibles para esta vista previa. El texto y el diseño pueden diferir del documento original.',
+  missingFontsCount: 'Fuentes: {count}',
+  closeDetails: 'Cerrar detalles de fuentes',
+  unavailable: 'Las vistas previas de Office no están disponibles. Habilita el servicio de vista previa de documentos en el host que ejecuta DeepSeek Harness.',
+  invalid: 'No se puede previsualizar este archivo de Office. Puede estar dañado, protegido con contraseña o tener una extensión incorrecta.',
+  tooLarge: 'El archivo de Office o el PDF convertido supera el límite de tamaño. Reduce el tamaño del archivo o ajusta la configuración.',
+  failed: 'La conversión de Office no generó un PDF utilizable. Comprueba el archivo y vuelve a intentarlo.',
+  timeout: 'Se agotó el tiempo de espera de conversión de Office. Inténtalo de nuevo.',
+  busy: 'La vista previa de Office está ocupada. Vuelve a intentarlo en breve.',
+  changed: 'El archivo cambió mientras se leía. Vuelve a abrir la vista previa.',
+} satisfies Record<OfficePreviewKey, string>
