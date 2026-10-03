@@ -163,6 +163,10 @@ When merging upstream updates, merge conflicts might occur if upstream modifies 
 | `packages/client/connection/src/rpc-host.ts` | Emits structured warnings via `ctx.logger.warn` on 403 / 401 rejection. | Retain logger warning invocations in `requestRejection`. |
 | `packages/client/connection/src/client/index.ts` | Authorizes LAN hosts (`isAuthorizedHost`) to unlock Settings UI persistence. | Retain `__DSH_TRUSTED_HOSTS__` evaluation and `isLoopback` calculation for authorized LAN clients. |
 | `packages/boot/app-boot/src/profile.ts` | Injects `packageManager: 'pnpm@11.7.0'` into profile `package.json`. | Retain `packageManager` in `initProfile`. |
+| `packages/bundle/base/cordis.patch.yml` | Default-deny privacy composition: `session-telemetry-otel` mounts in `DISABLED` mode with no collector URL; `session-log-deepseek` and `plugin-package-inventory-deepseek` opt in through `DSH_SESSION_LOG_UPLOAD` / `DSH_PLUGIN_INVENTORY_UPLOAD`. | **Always preserve the deny defaults:** keep the `DSH_TELEMETRY_DISABLED` override terms, the absent collector URL, and the `DISABLED` mode fallback; re-run `packages/bundle/base/tests/shipped-privacy-defaults.spec.ts` after resolving. |
+| `packages/bundle/web-app/cordis.patch.yml` | Desktop telemetry and analytics rows (`desktop-product-telemetry`, `product-analytics`) are opt-in only through `DSH_TELEMETRY_ENABLED`. | **Always preserve the deny defaults:** keep each row's `disabled` expression and the `product-analytics` `enabled: false`; re-run `packages/bundle/base/tests/shipped-privacy-defaults.spec.ts` after resolving. |
+| `packages/bundle/sdk-minimal/cordis.patch.yml` | SDK request contributions opt in through `DSH_SESSION_LOG_UPLOAD` / `DSH_PLUGIN_INVENTORY_UPLOAD`. | **Always preserve the deny defaults:** keep both `config.enabled` expressions and the `DSH_TELEMETRY_DISABLED` override; re-run `packages/bundle/base/tests/shipped-privacy-defaults.spec.ts` after resolving. |
+| `packages/boot/app-boot/src/profile-context.ts` | Telemetry switch precedence in `resolveTelemetryPatch`: a non-empty `DSH_TELEMETRY_DISABLED` wins, `DSH_TELEMETRY_ENABLED` opts in, neither denies. | **Always preserve the precedence:** keep the branch order, the optional `telemetryEnabledEnv` field, and the `session-telemetry-otel` row target; re-run the guard spec and the app-boot tests after resolving. |
 | `apps/cli/src/plugin.ts` | Backfills missing `packageManager` and disables Corepack prompt (`COREPACK_ENABLE_DOWNLOAD_PROMPT=0`). | Retain backfill logic and environment injection before `spawnSync`. |
 
 ### Conflict Commands
@@ -191,7 +195,7 @@ Immediately after a successful merge, complete the following quality gates:
 pnpm install
 
 # 2. Run unit tests for all community-modified packages
-pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
+pnpm exec vitest run packages/bundle/web-app packages/bundle/base packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
 # 3. Run code contracts and linter
 pnpm run lint:contracts-ready

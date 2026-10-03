@@ -297,6 +297,10 @@ else
   echo "  1. Review each conflict in your editor or diff tool."
   echo "  2. Remember community fork assets and invariants:"
   echo "     - docker/ and deploy/ are fork-specific directories."
+  echo "     - packages/bundle/base/cordis.patch.yml (default-deny telemetry and request contributions; guard: packages/bundle/base/tests/shipped-privacy-defaults.spec.ts)."
+  echo "     - packages/bundle/web-app/cordis.patch.yml (desktop telemetry rows opt-in only via DSH_TELEMETRY_ENABLED)."
+  echo "     - packages/bundle/sdk-minimal/cordis.patch.yml (SDK request contributions opt-in only)."
+  echo "     - packages/boot/app-boot/src/profile-context.ts (telemetry switch precedence: DSH_TELEMETRY_DISABLED wins)."
   echo "     - packages/bundle/web-app/src/startup.ts (DSH_HOST, DSH_PORT, 0.0.0.0 support)."
   echo "     - packages/client/connection/ (DSH_TRUSTED_HOSTS, DSH_REVERSE_PROXY, diagnostics)."
   echo "     - packages/boot/app-boot/src/profile.ts (packageManager: pnpm@11.7.0)."
@@ -315,7 +319,7 @@ if [[ "$AUTO_RUN_CHECKS" == "true" ]]; then
   pnpm install
 
   log_info "2. Running modified packages unit tests..."
-  pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
+  pnpm exec vitest run packages/bundle/web-app packages/bundle/base packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts
 
   log_info "3. Running code linter (oxlint)..."
   pnpm run lint:contracts-ready
@@ -332,7 +336,7 @@ else
   echo -e "     ${CYAN}pnpm install${RESET}"
   echo ""
   echo "  2. Run regression unit tests on modified packages:"
-  echo -e "     ${CYAN}pnpm exec vitest run packages/bundle/web-app packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts${RESET}"
+  echo -e "     ${CYAN}pnpm exec vitest run packages/bundle/web-app packages/bundle/base packages/client/connection packages/boot/app-boot apps/cli/tests/plugin.spec.ts${RESET}"
   echo ""
   echo "  3. Validate code contracts and linting:"
   echo -e "     ${CYAN}pnpm run lint:contracts-ready${RESET}"
