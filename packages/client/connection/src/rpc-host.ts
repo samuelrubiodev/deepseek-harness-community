@@ -108,7 +108,12 @@ export class HostConnectionService extends Service implements HostConnectionHand
       this.ctx.logger.warn(`client-connection: API request rejected (403): ${trust.reason}`)
       return 403
     }
-    const auth = this.browserAuth.authenticate(request)
+    const auth = typeof this.browserAuth.authenticate === 'function'
+      ? this.browserAuth.authenticate(request)
+      : {
+        authenticated: this.browserAuth.isAuthenticated(request),
+        reason: 'unauthenticated session',
+      }
     if (!auth.authenticated) {
       this.ctx.logger.warn(`client-connection: API request rejected (401): ${auth.reason}`)
       return 401
