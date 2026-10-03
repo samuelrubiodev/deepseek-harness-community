@@ -517,36 +517,31 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   // the resolved harness home so a scaffold sharing another's home — the
   // cross-port persistence scenario — pins the same roots the settings and
   // credentials rows were configured with.
-  //
-  // A scenario that supplies its own collector must opt in here as well: the
-  // launcher pushes its default-deny patch after every bundle and overlay
-  // layer, so the row this scaffold configures would otherwise be disabled.
-  const scaffoldEnvironment = {
+  const skillRootEnvironment = {
     DSH_HOME: harnessHome,
     DSH_AGENTS_HOME: join(workspaceCwd, '.agents-home'),
     DSH_BUNDLED_SKILL_DIR: join(workspaceCwd, '.bundled-skills'),
-    ...(options.telemetryUrl === undefined ? {} : { DSH_TELEMETRY_ENABLED: '1' }),
   }
-  const originalScaffoldEnvironment = Object.fromEntries(
-    Object.keys(scaffoldEnvironment).map(key => [key, process.env[key]]),
+  const originalSkillRootEnvironment = Object.fromEntries(
+    Object.keys(skillRootEnvironment).map(key => [key, process.env[key]]),
   )
-  let scaffoldEnvironmentRestored = false
-  const restoreScaffoldEnvironment = (): void => {
-    if (scaffoldEnvironmentRestored) return
-    scaffoldEnvironmentRestored = true
-    for (const [key, value] of Object.entries(originalScaffoldEnvironment)) {
+  let skillRootEnvironmentRestored = false
+  const restoreSkillRootEnvironment = (): void => {
+    if (skillRootEnvironmentRestored) return
+    skillRootEnvironmentRestored = true
+    for (const [key, value] of Object.entries(originalSkillRootEnvironment)) {
       if (value === undefined) Reflect.deleteProperty(process.env, key)
       else process.env[key] = value
     }
   }
-  Object.assign(process.env, scaffoldEnvironment)
+  Object.assign(process.env, skillRootEnvironment)
   let persistenceRoot: string
   try {
     persistenceRoot = await mkdtemp(join(tmpdir(), 'dsh-web-e2e-sessions-'))
   } catch (error) {
     const failures: unknown[] = [error]
     await rm(workspaceCwd, { recursive: true, force: true }).catch((cleanupError: unknown) => failures.push(cleanupError))
-    restoreScaffoldEnvironment()
+    restoreSkillRootEnvironment()
     if (failures.length > 1) throw new AggregateError(failures, 'web scaffold temp-root setup failed')
     throw error
   }
@@ -782,6 +777,10 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         cwd: workspaceCwd, home: harnessHome,
         startedBundles: loadProfileDirectory('dsh', profileDir, INSTALL_ANCHOR).layers.map(layer => layer.packageName),
         overlays: processOverlays, telemetryDisabledEnv: undefined,
+        // The launcher's default-deny patch is pushed after every overlay, so a
+        // scenario that supplies its own collector must opt in the same way a
+        // deployment does; otherwise the row it configures is disabled anyway.
+        ...(options.telemetryUrl === undefined ? {} : { telemetryEnabledEnv: '1' }),
       }
       // HMR gates file-driven reloads on application readiness, which the
       // launcher commits after boot; this direct harness is ready at once.
@@ -912,7 +911,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       await publicProxy.close().catch((closeError: unknown) => cleanupFailures.push(closeError))
     }
     restoreCredentialEnvironment()
-    restoreScaffoldEnvironment()
+    restoreSkillRootEnvironment()
     if (cleanupFailures.length > 0) {
       throw new AggregateError([error, ...cleanupFailures], 'web scaffold setup failed and cleanup was incomplete')
     }
@@ -993,7 +992,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         }
       } finally {
         restoreCredentialEnvironment()
-        restoreScaffoldEnvironment()
+        restoreSkillRootEnvironment()
       }
       if (failures.length > 0) throw new AggregateError(failures, 'web scaffold teardown failed')
     },
