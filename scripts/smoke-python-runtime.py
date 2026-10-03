@@ -1303,6 +1303,9 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
             {"id": "tool-bash", "disabled": True},
             {"id": "tool-pwsh", "disabled": True},
             {"id": "session-title-llm", "disabled": True},
+            # The committed tool-history fixture records the acceptance watermark,
+            # so this scenario opts into the contribution explicitly.
+            {"id": "session-log-deepseek", "config": {"enabled": True}},
             {"insert": [{
                 "id": "dynamic-tools",
                 "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-dynamic-tools.mjs").as_uri(),

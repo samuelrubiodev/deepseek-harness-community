@@ -27,8 +27,10 @@ it.each([
   onTestFinished(async () => { const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('missing collector address')
-  if (enabledEnv !== undefined) vi.stubEnv('DSH_TELEMETRY_ENABLED', enabledEnv)
-  if (disabledEnv !== undefined) vi.stubEnv('DSH_TELEMETRY_DISABLED', disabledEnv)
+  // Stub both signals unconditionally: CI exports DSH_TELEMETRY_DISABLED=1 for
+  // every workflow, so an inherited value would silently deny the opted-in case.
+  vi.stubEnv('DSH_TELEMETRY_ENABLED', enabledEnv ?? '')
+  vi.stubEnv('DSH_TELEMETRY_DISABLED', disabledEnv ?? '')
   vi.stubEnv('DSH_CLIENT_VERSION', 'test-version')
   vi.stubEnv('DSH_PRODUCT_ANALYTICS_OTLP_URL', `http://127.0.0.1:${address.port}/logs`)
   const ctx = new Context()
