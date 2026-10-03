@@ -69,6 +69,14 @@ describe('dsh-sdk-minimal bundle', () => {
       includeRuntimeContext: false,
       personaPrefix: { __jsExpr: "process.env.DSH_SYSTEM_PROMPT ?? 'You are a helpful software engineer assistant.'" },
     })
+    // The shipped request contributions deny by default and opt in through
+    // their own environment variable; the telemetry disable switch overrides.
+    expect(rows.find(row => row.id === 'session-log-deepseek')?.config).toEqual({
+      enabled: { __jsExpr: 'Boolean(process.env.DSH_SESSION_LOG_UPLOAD) && !process.env.DSH_TELEMETRY_DISABLED' },
+    })
+    expect(rows.find(row => row.id === 'plugin-package-inventory-deepseek')?.config).toEqual({
+      enabled: { __jsExpr: 'Boolean(process.env.DSH_PLUGIN_INVENTORY_UPLOAD) && !process.env.DSH_TELEMETRY_DISABLED' },
+    })
     expect(rows.find(row => row.id === 'agent-loop')?.config).toEqual({ agents: [] })
     expect(rows.find(row => row.id === 'terminal-bash')).toMatchObject({
       disabled: { __jsExpr: "process.platform === 'win32'" },

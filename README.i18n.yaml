@@ -3,11 +3,11 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
 /deepseek-harness-community-fork:
-  en: db757e51c1ba791b
-  zh: d9400074aa31d73b
+  en: 40703c0acb9f1e47
+  zh: e37450c86d8888bb
 /deepseek-harness-community-fork/what-this-fork-changes:
-  en: 74867ed4726bac00
-  zh: 26c7589dad821759
+  en: a569c5148431411a
+  zh: 42d651b3285b7bdf
 /deepseek-harness-community-fork/run:
   en: 4e0248e4c6474fc6
   zh: eb2fb8d78c7d6bc0
@@ -30,8 +30,11 @@
   en: c04429d7535b10aa
   zh: 0026f0084ce96ce8
 /deepseek-harness-community-fork/configuration/reverse-proxy:
-  en: 01d5a06a501a195b
-  zh: 1139faab5bea1b10
+  en: 733f68b6de53d7d8
+  zh: 26f0304e258e7a1b
+/deepseek-harness-community-fork/configuration/telemetry-and-privacy:
+  en: 03a122dae18e97ce
+  zh: d114e7cc22066105
 /deepseek-harness-community-fork/upgrading:
   en: a4faac2ab67f3d9a
   zh: bd1ecde66d0cdc20

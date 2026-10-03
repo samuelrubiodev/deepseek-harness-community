@@ -33,9 +33,36 @@ describe('dsh-base bundle', () => {
     expect(rows.length).toBeGreaterThan(50)
     expect(rows.some(row => row.id === 'agent-loop')).toBe(true)
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.disabled).toBeUndefined()
-    expect(rows.find(row => row.id === 'session-telemetry-otel')?.config?.['mode']).toEqual({
-      __jsExpr: "process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
+    // Telemetry is default-denied: DISABLED mode, and no collector endpoint
+    // baked in — the url is the bare opt-in environment read. The mode
+    // expression carries its own disable-wins ternary, so the row denies
+    // without relying on the launcher switch.
+    const telemetryConfig = rows.find(row => row.id === 'session-telemetry-otel')?.config
+    expect(telemetryConfig?.['mode']).toEqual({
+      __jsExpr: "process.env.DSH_TELEMETRY_DISABLED ? 'DISABLED' : (process.env.DSH_TELEMETRY_MODE || 'DISABLED')",
     })
+    expect((telemetryConfig?.['mode'] as { __jsExpr?: string } | undefined)?.__jsExpr)
+      .toContain("DSH_TELEMETRY_DISABLED ? 'DISABLED'")
+    expect((telemetryConfig?.['exporter'] as { url?: unknown } | undefined)?.url).toEqual({
+      __jsExpr: 'process.env.DSH_TELEMETRY_OTLP_URL',
+    })
+    // The request-contribution rows deny by default, opt in through their own
+    // environment variable, and the telemetry disable switch overrides — each
+    // row carries the precedence itself, without relying on the launcher.
+    const uploadRows = [
+      ['session-log-deepseek', 'DSH_SESSION_LOG_UPLOAD'],
+      ['plugin-package-inventory-deepseek', 'DSH_PLUGIN_INVENTORY_UPLOAD'],
+    ] as const
+    for (const [id, optInEnv] of uploadRows) {
+      const expression = (rows.find(row => row.id === id)?.config?.['enabled'] as { __jsExpr: string }).__jsExpr
+      const enabled = (env: Record<string, string | undefined>): boolean =>
+        Boolean(evaluate({ process: { env } }, expression))
+      expect(enabled({}), `${id} denies by default`).toBe(false)
+      expect(enabled({ [optInEnv]: '1' }), `${id} opts in`).toBe(true)
+      expect(enabled({ [optInEnv]: '1', DSH_TELEMETRY_DISABLED: '1' }), `${id} disable wins`).toBe(false)
+      expect(enabled({ [optInEnv]: '', DSH_TELEMETRY_DISABLED: '' }), `${id} empty values deny`).toBe(false)
+      expect(enabled({ DSH_TELEMETRY_DISABLED: '0' }), `${id} disable-only denies`).toBe(false)
+    }
     expect(rows.find(row => row.id === 'hmr')).toMatchObject({
       config: { root: [] },
     })

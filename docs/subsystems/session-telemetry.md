@@ -87,7 +87,7 @@ interface SessionTelemetryCaptureOptions {
 }
 ```
 
-`includeHistory` permits stored and inherited records but does not itself authorize capture. The [OTel backend](../../packages/session/session-telemetry-otel/README.md) uses on-demand capture and requires new own explicit feedback; it releases only the complete prefix through that feedback, for every provider.
+`includeHistory` permits stored and inherited records but does not itself authorize capture. The [OTel backend](../../packages/session/session-telemetry-otel/README.md) uses on-demand capture and requires new own explicit feedback; it releases only the complete prefix through that feedback, for every provider. The shipped composition mounts the backend denied by default: exporting needs a non-empty `DSH_TELEMETRY_ENABLED`, `DSH_TELEMETRY_MODE` set to `FEEDBACK_ONLY`, and the collector URL supplied through `DSH_TELEMETRY_OTLP_URL`, while a non-empty `DSH_TELEMETRY_DISABLED` forces `DISABLED` even when a mode was supplied.
 
 ## The backend contract
 

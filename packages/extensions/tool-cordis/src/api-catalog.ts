@@ -1803,6 +1803,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Launch-time DSH_TELEMETRY_DISABLED value; any non-empty value opts out.',
         parameters: [],
       },
+      {
+        signature: 'readonly telemetryEnabledEnv?: string | undefined',
+        description: 'Explicit telemetry opt-in signal; absent or empty leaves the default deny in place.',
+        parameters: [],
+      },
     ],
   },
   {

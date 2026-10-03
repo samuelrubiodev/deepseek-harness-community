@@ -44,7 +44,7 @@ const positiveInteger = () => z.number().step(1).min(1).max(2_147_483_647)
 
 /** Loader validation and defaults for application compositions. */
 export const Config: z<Partial<Config>, Config> = z.object({
-  endpoint: z.string().default('https://dsh-otel-collector.deepseeksvc.com/v1/logs'),
+  endpoint: z.string().required(),
   channel: z.string().min(1).default('dsh_otel_report'),
   serviceName: z.string().required(),
   serviceVersion: z.string().required(),

@@ -1,6 +1,8 @@
 # DeepSeek Harness — Community Fork
 
-[English](README.zh.md) | 中文
+English | [中文](README.zh.md)
+
+[Español](README.es.md)
 
 A self-service distribution of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) for home servers and LAN deployments. It adds a one-command Docker setup, local-network and reverse-proxy access, and declarative environment configuration — without rewriting upstream code, so `git merge upstream/master` stays cheap.
 
@@ -17,6 +19,8 @@ Upstream binds to `127.0.0.1` only and rejects LAN or proxy access by design. Th
 - **Headless Browser & Visual Inspection**: the Docker image includes Chromium, system graphics libraries, and pre-installed Playwright so agents can run headless browsers, take WebGL screenshots, and visually self-verify out of the box.
 - **Docker-native plugin management**: `pnpm` is preinstalled and its store persists on the `/data` volume.
 - **Structured diagnostics**: rejected requests log an exact, credential-free reason (`untrusted host "…"`, `origin mismatch (…)`, `session cookie expired at …`) to `docker compose logs`.
+- **Telemetry denied by default**: the OTel session telemetry, the Desktop product analytics, and the non-inference metadata carried on official DeepSeek API requests (`dsh_session_log`, `dsh_plugin_packages`) all ship off, and no collector URL is baked in. Each has an explicit opt-in, and `DSH_TELEMETRY_DISABLED` overrides all of them. See [Telemetry and privacy](#telemetry-and-privacy).
+- **Spanish interface**: the Web UI ships English, Chinese, and Spanish. It follows your browser language, and Settings pins an explicit choice.
 
 Everything else — the agent loop, plugins, session storage — is upstream code, unmodified.
 
@@ -112,6 +116,24 @@ Reference configurations with TLS termination, WebSocket passthrough (`/api/remo
 1. Set `DSH_REVERSE_PROXY=true` and add the public hostname to `DSH_TRUSTED_HOSTS`.
 2. Forward `X-Forwarded-Host: $host` and `X-Forwarded-Proto: https` (at TLS-terminating proxies).
 3. Pass `Upgrade` / `Connection` headers and disable response buffering.
+
+<a id="telemetry-and-privacy"></a>
+
+### Telemetry and privacy
+
+Nothing leaves your deployment unless you opt in. Every telemetry channel and every non-inference contribution to official DeepSeek API requests is denied by default, and no collector URL is baked in.
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `DSH_TELEMETRY_ENABLED` | *(empty)* | Opt in to the OpenTelemetry channels. Session telemetry additionally needs `DSH_TELEMETRY_MODE=FEEDBACK_ONLY` and `DSH_TELEMETRY_OTLP_URL`; Desktop product analytics additionally needs `DSH_PRODUCT_ANALYTICS_OTLP_URL`. |
+| `DSH_TELEMETRY_MODE` | `DISABLED` | Session telemetry sharing policy. `FEEDBACK_ONLY` releases the canonical session prefix only after new explicit feedback; `FULL` is rejected. |
+| `DSH_TELEMETRY_OTLP_URL` | *(empty)* | OTLP logs endpoint for session telemetry. An uploading mode requires it, and an opted-in process without it fails at load. |
+| `DSH_PRODUCT_ANALYTICS_OTLP_URL` | *(empty)* | OTLP logs endpoint for Desktop product analytics. |
+| `DSH_SESSION_LOG_UPLOAD` | *(empty)* | Opt in to attaching the canonical session log to official DeepSeek API requests. |
+| `DSH_PLUGIN_INVENTORY_UPLOAD` | *(empty)* | Opt in to attaching the installed plugin inventory to official DeepSeek API requests. |
+| `DSH_TELEMETRY_DISABLED` | *(empty)* | Overrides every opt-in above. Any non-empty value denies, including `0` and `false`. |
+
+The DeepSeek inference path is unaffected: `api.deepseek.com` requests, the harness identity request headers, and `user-agent` behave the same whether or not telemetry is enabled.
 
 ## Upgrading
 

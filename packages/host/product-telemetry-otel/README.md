@@ -25,12 +25,13 @@ Send selected product usage events to an OTLP/HTTP collector. Events carry a nam
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount the plugin in a Cordis composition with the application identity; override the collector endpoint when needed. The Desktop composition mounts it when [product analytics](../../client/product-analytics/README.md) is enabled; ordinary Web does not. The standalone example below reads `DSH_APP_VERSION`; Desktop supplies `DSH_CLIENT_VERSION` through its native launcher. Both must name the running release; the schema rejects an absent version.
+Mount the plugin in a Cordis composition with the application identity; the composition supplies the collector endpoint — no vendor collector is baked in. The Desktop composition mounts it when [product analytics](../../client/product-analytics/README.md) is enabled; ordinary Web does not. The standalone example below reads `DSH_APP_VERSION`; Desktop supplies `DSH_CLIENT_VERSION` through its native launcher. Both must name the running release; the schema rejects an absent version.
 
 ```yaml
 - name: '@deepseek-ai/dsh-otel'
 - name: '@deepseek-ai/dsh-host-product-telemetry-otel'
   config:
+    # The full OTLP logs endpoint the composition supplies; there is no default.
     endpoint: https://dsh-otel-collector.deepseeksvc.com/v1/logs
     serviceName: deepseek-harness
     serviceVersion: !!js process.env.DSH_APP_VERSION
@@ -40,7 +41,7 @@ Mount the plugin in a Cordis composition with the application identity; override
 
 | Field | Default | Meaning |
 |---|---|---|
-| `endpoint` | `https://dsh-otel-collector.deepseeksvc.com/v1/logs` | Full HTTP(S) logs URL |
+| `endpoint` | required | Full HTTP(S) logs URL supplied by the composition; the schema rejects an absent value |
 | `serviceName`, `serviceVersion` | required | Application identity on the OTel resource |
 | `channel` | `dsh_otel_report` | Collector `x-channel` header |
 | `compression` | SDK environment | `gzip` or `none`; omission honors OTel compression environment variables |
@@ -50,7 +51,7 @@ Mount the plugin in a Cordis composition with the application identity; override
 | `exportTimeoutMillis` | `20000` | Processor batch export deadline |
 | `shutdownTimeoutMillis` | `21000` | Drain deadline; expiry cancels pending exports and reports possible loss |
 
-The default endpoint routes explicitly submitted events to the production product collector. Test and custom deployments must override it. Only `x-channel` and SDK protocol headers reach the collector; ambient OTel headers and client certificates are not inherited.
+No endpoint is baked in: the composition supplies the full OTLP logs URL for the explicitly submitted events, and the schema rejects an absent value. Only `x-channel` and SDK protocol headers reach the collector; ambient OTel headers and client certificates are not inherited.
 
 The 30-second interval batches product events; the exporter has a 15-second retry window inside the processor’s 20-second batch deadline. The 21-second drain deadline covers SDK `forceFlush()` work that the processor deadline does not cover. Expiry cancels active HTTP requests and retry waits, then awaits transport cleanup before disposal completes. An unreachable collector can delay disposal for the full 21 seconds. A full 2,048-record queue requires four 512-record batches and may not drain before that deadline. Interactive compositions needing a shorter exit should override these budgets; neither configuration guarantees delivery.
 

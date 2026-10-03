@@ -777,6 +777,10 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         cwd: workspaceCwd, home: harnessHome,
         startedBundles: loadProfileDirectory('dsh', profileDir, INSTALL_ANCHOR).layers.map(layer => layer.packageName),
         overlays: processOverlays, telemetryDisabledEnv: undefined,
+        // The launcher's default-deny patch is pushed after every overlay, so a
+        // scenario that supplies its own collector must opt in the same way a
+        // deployment does; otherwise the row it configures is disabled anyway.
+        ...(options.telemetryUrl === undefined ? {} : { telemetryEnabledEnv: '1' }),
       }
       // HMR gates file-driven reloads on application readiness, which the
       // launcher commits after boot; this direct harness is ready at once.

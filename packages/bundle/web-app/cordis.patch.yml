@@ -42,9 +42,15 @@
 # `dsh.client` rows are the browser roster the modules node half scans into
 # window.__DSH_BOOT__; the modules row is simultaneously a host row.
 - insert:
+    # Desktop product telemetry and analytics are opt-in: these rows deny
+    # unless the desktop profile runs with a non-empty DSH_TELEMETRY_ENABLED,
+    # and a non-empty DSH_TELEMETRY_DISABLED wins over the opt-in. Each row
+    # states that precedence itself, mirroring the launcher's disable switch
+    # (which patches the session telemetry row) rather than relying on it.
+    # Opting in requires the DSH_PRODUCT_ANALYTICS_OTLP_URL endpoint.
     - id: desktop-product-telemetry
       name: '@deepseek-ai/dsh-host-product-telemetry-otel'
-      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || !process.env.DSH_TELEMETRY_ENABLED || !!process.env.DSH_TELEMETRY_DISABLED"
       config:
         scheduledDelayMillis: 30000
         timeoutMillis: 15000
@@ -56,9 +62,9 @@
 
     - id: product-analytics
       name: '@deepseek-ai/dsh-client-product-analytics'
-      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || !process.env.DSH_TELEMETRY_ENABLED || !!process.env.DSH_TELEMETRY_DISABLED"
       config:
-        enabled: true
+        enabled: false
         appVersion: !!js process.env.DSH_CLIENT_VERSION
 
     # Host-owned opt-in sampled when a new Web session receives its preset

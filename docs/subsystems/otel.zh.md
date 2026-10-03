@@ -6,7 +6,7 @@
 
 UI 反馈通过现有 Remote API 到达 Session 反馈服务。记录反馈后，Session 适配器才获得规范日志前缀的捕获授权，完成脱敏后通过 OTel 通道上报。普通产品调用方通过产品适配器提交选定字段。共享服务没有自动身份或捕获策略，通道之间不共享队列或请求。
 
-[产品适配器](../../packages/host/product-telemetry-otel/README.zh.md) 和 [Session 适配器](../../packages/session/session-telemetry-otel/README.zh.md) 保留各自部署配置及销毁期限。通道关闭后调用方不得复用。只挂载 OTel 服务不会分配 provider 或 transport。
+[产品适配器](../../packages/host/product-telemetry-otel/README.zh.md) 和 [Session 适配器](../../packages/session/session-telemetry-otel/README.zh.md) 保留各自部署配置及销毁期限。通道关闭后调用方不得复用。只挂载 OTel 服务不会分配 provider 或 transport。随附组合挂载的每条遥测通道都默认拒绝：非空的 `DSH_TELEMETRY_ENABLED` 让部署选择加入，而非空的 `DSH_TELEMETRY_DISABLED` 即使在这种情况下也拒绝。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

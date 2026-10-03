@@ -30,13 +30,13 @@ export const inject = ['agents', 'deepseekLlmApiExtensions', 'loader']
 
 /** Plugin-package request contribution configuration. */
 export interface Config {
-  /** Contribute `dsh_plugin_packages` to official DeepSeek requests. Defaults to `true`. */
+  /** Contribute `dsh_plugin_packages` to official DeepSeek requests. Defaults to `false`. */
   enabled?: boolean
 }
 
 /** Validated plugin-package request contribution configuration. */
 export const Config: z<Config> = z.object({
-  enabled: z.boolean().default(true),
+  enabled: z.boolean().default(false),
 })
 
 interface PackageManifest {
@@ -186,7 +186,7 @@ function collectActivePluginPackages(
 /**
  * Register the complete `dsh_plugin_packages` request contribution when enabled.
  * @param ctx - plugin context carrying Loader entry metadata and the DeepSeek request-extension registry.
- * @param config - validated default-on configuration.
+ * @param config - validated default-denied configuration.
  */
 export function apply(ctx: Context, config: Config): void {
   if (config.enabled === false) return

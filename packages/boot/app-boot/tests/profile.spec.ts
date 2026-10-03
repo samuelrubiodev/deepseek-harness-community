@@ -194,8 +194,11 @@ it('composes current files from profile data and retains launch overlay and tele
     overlays: [{ id: 'session-telemetry-otel', disabled: false }], telemetryDisabledEnv: 'false',
   }
   expect(composeEntries([readProfilePatches('test', context)])[0]?.disabled).toBe(true)
-  const enabled = { ...context, telemetryDisabledEnv: undefined }
+  const enabled = { ...context, telemetryDisabledEnv: undefined, telemetryEnabledEnv: '1' }
   expect(composeEntries([readProfilePatches('test', enabled)])[0]?.disabled).toBe(false)
+  // Telemetry is default-denied: without an explicit opt-in, the pushed patch
+  // disables the row even where an earlier layer enabled it.
+  expect(composeEntries([readProfilePatches('test', { ...context, telemetryDisabledEnv: undefined })])[0]?.disabled).toBe(true)
   const patches = readProfilePatches('test', enabled)
   patches.at(-1)!.disabled = true
   expect(context.overlays[0]?.disabled).toBe(false)
