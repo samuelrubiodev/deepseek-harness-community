@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g pnpm@11.7.0 && corepack enable && corepack prepare pnpm@11.7.0 --activate
+RUN npm install -g pnpm@11.28.5 && corepack enable && corepack prepare pnpm@11.28.5 --activate
 
 ARG DSH_CLIENT_COMMIT_HASH=0000000
 ENV DSH_CLIENT_COMMIT_HASH=${DSH_CLIENT_COMMIT_HASH}

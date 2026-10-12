@@ -303,7 +303,7 @@ else
   echo "     - packages/boot/app-boot/src/profile-context.ts (telemetry switch precedence: DSH_TELEMETRY_DISABLED wins)."
   echo "     - packages/bundle/web-app/src/startup.ts (DSH_HOST, DSH_PORT, 0.0.0.0 support)."
   echo "     - packages/client/connection/ (DSH_TRUSTED_HOSTS, DSH_REVERSE_PROXY, diagnostics)."
-  echo "     - packages/boot/app-boot/src/profile.ts (packageManager: pnpm@11.7.0)."
+  echo "     - packages/boot/app-boot/src/profile.ts (packageManager: pnpm@11.28.5)."
   echo "     - apps/cli/src/plugin.ts (packageManager backfill)."
   echo "  3. After resolving, stage files with:   ${BOLD}git add <file>${RESET}"
   echo "  4. Complete the merge commit with:     ${BOLD}git commit${RESET}"

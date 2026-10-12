@@ -268,7 +268,7 @@ export function initProfile(
     const manifest: ProfileManifest & { private: boolean } = {
       name: `dsh-profile-${basename(dir)}`,
       private: true,
-      packageManager: 'pnpm@11.7.0',
+      packageManager: 'pnpm@11.28.5',
       dependencies: {},
       dsh: { profile: { bundles: [...bundles] } },
     }
