@@ -64,7 +64,7 @@ function requestAudience(headers: ConnectionTrustRequest['headers'], secure: boo
   const host = forwarded ?? header(headers, 'host')
   if (host === undefined) return undefined
   const proto = (reverseProxy ? firstHeaderSegment(header(headers, 'x-forwarded-proto')) : undefined)
-  const isSecure = proto !== undefined ? (proto === 'https' || proto === 'https:') : secure
+  const isSecure = proto !== undefined ? proto.startsWith('https') : secure
   try {
     const url = new URL(`${isSecure ? 'https:' : 'http:'}//${host}`)
     return isSecure ? url.origin : url.host

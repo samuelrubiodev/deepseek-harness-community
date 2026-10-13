@@ -250,6 +250,7 @@ describe('isTrustedApiRequest', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       'client-connection: API request rejected (403): untrusted host "untrusted.lan" (no trustedHosts configured)',
     )
+    expect(evaluateApiRequestTrust(request({ host: '192.168.1.10:3080' }), [], '192.168.1.10').trusted).toBe(true)
   })
 })
 

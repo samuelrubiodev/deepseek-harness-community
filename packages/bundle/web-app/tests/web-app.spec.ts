@@ -180,6 +180,21 @@ describe('web-app runtime glue', () => {
     await ctx.fiber.dispose()
   })
 
+  it('formats LAN candidate without port from trustedHosts when binding loopback', async () => {
+    stageDist()
+    const ctx = new Context()
+    const { server } = fakeHttpServer('127.0.0.1')
+    ctx.provide('webServer', server)
+    provideConnection(ctx)
+    provideLoader(ctx)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    internals.openBrowser = vi.fn()
+    apply(ctx, new Config({ openBrowser: false, printUrl: true, surfaceContext: false, trustedHosts: ['plain.lan'] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=test-token (LAN: http://plain.lan:4567/?token=test-token)')
+    await ctx.fiber.dispose()
+  })
+
   it('advertises and opens the configured public root behind a prefix-stripping proxy', async () => {
     stageDist()
     const ctx = new Context()
