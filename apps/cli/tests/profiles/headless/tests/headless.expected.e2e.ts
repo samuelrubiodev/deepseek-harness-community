@@ -113,7 +113,7 @@ async function deepseekDefaultsServer(
         if (keepAlives-- > 0
           || (options.waitForTitleRequest === true && !requests.some(isTitleRequest))) {
           response.write(': keep-alive\n\n')
-          timer = setTimeout(write, 60)
+          timer = setTimeout(write, 25)
           return
         }
         if (options.piAiCompatibility !== true) {
@@ -134,7 +134,7 @@ async function deepseekDefaultsServer(
           '',
         ].join('\n\n'))
       }
-      let timer = setTimeout(write, 60)
+      let timer = setTimeout(write, 25)
       response.once('close', () => { clearTimeout(timer) })
     })
   })
