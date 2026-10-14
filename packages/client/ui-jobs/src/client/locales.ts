@@ -34,6 +34,7 @@ export const zh = {
   'terminal.signal': '信号 {signal}',
   'terminal.exitCode': '退出码 {code}',
   'terminal.noExitCode': '未正常退出',
+  'terminal.commandLine': '命令第 {n} 行',
   'terminal.running': '运行中',
   'terminal.failed': '已失败',
   'terminal.done': '已完成',
@@ -77,6 +78,7 @@ export const en: Record<JobKey, string> = {
   'terminal.signal': 'signal {signal}',
   'terminal.exitCode': 'exit {code}',
   'terminal.noExitCode': 'no exit code',
+  'terminal.commandLine': 'Command line {n}',
   'terminal.running': 'running',
   'terminal.failed': 'failed',
   'terminal.done': 'done',
@@ -130,6 +132,7 @@ export const es: Record<JobKey, string> = {
   'terminal.collapseAria': 'Contraer salida',
   'terminal.expand': 'Mostrar {n} líneas más',
   'terminal.expandAria': 'Expandir {n} líneas de salida contraídas',
+  'terminal.commandLine': 'Línea de comando {n}',
 }
 
 /** Key domain of the `job` namespace (zh is the source of truth). */

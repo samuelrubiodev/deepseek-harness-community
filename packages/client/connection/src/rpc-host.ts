@@ -10,7 +10,7 @@ import {
 } from './rpc.ts'
 import { clientRequestSchema } from './rpc-schema.ts'
 import { bridge } from './http-bridge.ts'
-import { evaluateApiRequestTrust } from './api-request-trust.ts'
+import { evaluateApiRequestTrust, isRemoteAuthority } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import { OperatorPeer } from './operator-peer.ts'
@@ -66,6 +66,8 @@ export class HostConnectionService extends Service implements HostConnectionHand
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
 
+  readonly allowsRemoteAuthorities: boolean
+
   /**
    * Provide the Host half over the active HTTP server.
    * @param ctx - owning Connection plugin context.
@@ -81,6 +83,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     super(ctx, 'connection')
     this.operator = new OperatorPeer(ctx)
     ctx.effect(() => () => this.operator.dispose(), 'client-connection: operator Peer')
+    this.allowsRemoteAuthorities = trustedHosts.some(isRemoteAuthority)
   }
 
   /** Generic channel registry scoped to the Context reading this service. */
@@ -101,17 +104,23 @@ export class HostConnectionService extends Service implements HostConnectionHand
     }
   }
 
-  /** Apply the configured Host/Origin fence, then browser authentication. */
+  /** Apply the Host/Origin fence, then browser authentication. */
   requestRejection(request: ConnectionTrustRequest): ConnectionRequestRejection {
-    const trust = evaluateApiRequestTrust(request, this.trustedHosts, { reverseProxy: this.reverseProxy })
+    const carrier = this.ctx.get('webServer')
+    const secure = carrier?.protocol === 'https:'
+    const trust = evaluateApiRequestTrust(request, this.trustedHosts, {
+      ...(carrier?.host !== undefined ? { bindHost: carrier.host } : {}),
+      protocol: carrier?.protocol ?? 'http:',
+      reverseProxy: this.reverseProxy,
+    })
     if (!trust.trusted) {
       this.ctx.logger.warn(`client-connection: API request rejected (403): ${trust.reason}`)
       return 403
     }
     const auth = typeof this.browserAuth.authenticate === 'function'
-      ? this.browserAuth.authenticate(request)
+      ? this.browserAuth.authenticate(request, secure)
       : {
-        authenticated: this.browserAuth.isAuthenticated(request),
+        authenticated: this.browserAuth.isAuthenticated(request, secure),
         reason: 'unauthenticated session',
       }
     if (!auth.authenticated) {
@@ -127,9 +136,11 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return rejection === undefined ? { peer: this.operator } : { rejection }
   }
 
-  /** Authenticate an index request through the process-token exchange or cookie. */
+  /**
+   * Authenticate an index request; native TLS listeners mint Secure cookies.
+   */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
-    return this.browserAuth.authorizeIndex(request, response)
+    return this.browserAuth.authorizeIndex(request, response, this.ctx.get('webServer')?.protocol === 'https:')
   }
 
   /** Add this process's launch token to the clean application URL. */

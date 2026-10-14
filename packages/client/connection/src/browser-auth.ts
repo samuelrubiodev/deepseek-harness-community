@@ -58,14 +58,16 @@ function processLaunchToken(owner: object): string {
   return created
 }
 
-/** Canonical request authority used as the cookie name and signed audience. */
-function requestAuthority(headers: ConnectionTrustRequest['headers'], reverseProxy: boolean = false): string | undefined {
+/** Protocol-scoped cookie audience; HTTP retains its existing authority-only spelling. */
+function requestAudience(headers: ConnectionTrustRequest['headers'], secure: boolean, reverseProxy: boolean = false): string | undefined {
   const forwarded = reverseProxy ? firstHeaderSegment(header(headers, 'x-forwarded-host')) : undefined
   const host = forwarded ?? header(headers, 'host')
   if (host === undefined) return undefined
-  const proto = (reverseProxy ? firstHeaderSegment(header(headers, 'x-forwarded-proto')) : undefined) ?? 'http'
+  const proto = (reverseProxy ? firstHeaderSegment(header(headers, 'x-forwarded-proto')) : undefined)
+  const isSecure = proto !== undefined ? proto.startsWith('https') : secure
   try {
-    return new URL(`${proto}://${host}`).host
+    const url = new URL(`${isSecure ? 'https:' : 'http:'}//${host}`)
+    return isSecure ? url.origin : url.host
   } catch {
     return undefined
   }
@@ -112,8 +114,15 @@ function cookieValue(headerValue: string, name: string): string | undefined {
 }
 
 /** Serialize the fixed browser-session attributes; generated names and values are cookie-safe base64url. */
-function sessionCookie(name: string, value: string, expiresAt: number, maxAgeSeconds: number): string {
-  return `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict`
+function sessionCookie(
+  name: string,
+  value: string,
+  expiresAt: number,
+  maxAgeSeconds: number,
+  secure: boolean,
+): string {
+  const attributes = `${name}=${value}; Max-Age=${String(maxAgeSeconds)}; Path=/; Expires=${new Date(expiresAt).toUTCString()}; HttpOnly; SameSite=Strict`
+  return secure ? `${attributes}; Secure` : attributes
 }
 
 function signature(secret: Buffer, body: string): Buffer {
@@ -271,15 +280,19 @@ export class BrowserAuth {
    * 401 response.
    * @param req - incoming root or configured-index request.
    * @param res - response owned when this method returns false.
+   * @param secure - whether the listener receiving this request serves TLS; the
+   * minted cookie carries `Secure` when it does. Only that listener's own
+   * protocol decides, never a `publicUrl` announcement or a forwarded header:
+   * those describe a hop this process does not terminate.
    * @returns true only when the caller may serve index.html.
    */
-  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
+  authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse, secure = false): boolean {
     if (this.mode === 'none') return true
     /* v8 ignore next -- node:http always supplies url on server requests. */
     const url = new URL(req.url ?? '/', 'http://dsh.invalid')
     const tokens = url.searchParams.getAll(TOKEN_QUERY)
     if (tokens.length > 0) {
-      const authority = requestAuthority(req.headers, this.reverseProxy)
+      const authority = requestAudience(req.headers, secure, this.reverseProxy)
       if (req.method === 'GET' && url.pathname === '/' && tokens.length === 1
         && authority !== undefined && tokenMatches(tokens.join(''), this.launchToken)) {
         const issuedAt = Date.now()
@@ -295,13 +308,13 @@ export class BrowserAuth {
           'location': './',
           'referrer-policy': 'no-referrer',
           'set-cookie': sessionCookie(
-            cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000),
+            cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
           ),
         })
         res.end()
         return false
       }
-      if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req)) {
+      if (req.method === 'GET' && url.pathname === '/' && this.isAuthenticated(req, secure)) {
         res.writeHead(303, {
           'cache-control': 'no-store',
           'location': './',
@@ -323,7 +336,7 @@ export class BrowserAuth {
       this.writeUnauthorized(req, res, failureReason)
       return false
     }
-    const auth = this.authenticate(req)
+    const auth = this.authenticate(req, secure)
     if (auth.authenticated) return true
     this.writeUnauthorized(req, res, auth.reason)
     return false
@@ -332,11 +345,12 @@ export class BrowserAuth {
   /**
    * Verify the authority-bound browser cookie on a Host request with detailed failure diagnostic reason.
    * @param request - request headers carrying Host and Cookie.
+   * @param secure - whether the receiving listener uses TLS, including its default port.
    * @returns detailed authentication result.
    */
-  authenticate(request: ConnectionTrustRequest): BrowserAuthResult {
+  authenticate(request: ConnectionTrustRequest, secure = false): BrowserAuthResult {
     if (this.mode === 'none') return { authenticated: true }
-    const authority = requestAuthority(request.headers, this.reverseProxy)
+    const authority = requestAudience(request.headers, secure, this.reverseProxy)
     if (authority === undefined) {
       return { authenticated: false, reason: 'missing or unparseable request authority (Host)' }
     }
@@ -371,10 +385,11 @@ export class BrowserAuth {
   /**
    * Verify the authority-bound browser cookie on a Host request.
    * @param request - request headers carrying Host and Cookie.
+   * @param secure - whether the receiving listener uses TLS, including its default port.
    * @returns true only for an unexpired cookie signed by this activation's loaded secret.
    */
-  isAuthenticated(request: ConnectionTrustRequest): boolean {
-    return this.authenticate(request).authenticated
+  isAuthenticated(request: ConnectionTrustRequest, secure = false): boolean {
+    return this.authenticate(request, secure).authenticated
   }
 
   private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse, reason?: string): void {
