@@ -113,7 +113,7 @@ async function deepseekDefaultsServer(
         if (keepAlives-- > 0
           || (options.waitForTitleRequest === true && !requests.some(isTitleRequest))) {
           response.write(': keep-alive\n\n')
-          timer = setTimeout(write, 25)
+          timer = setTimeout(write, 60)
           return
         }
         if (options.piAiCompatibility !== true) {
@@ -134,7 +134,7 @@ async function deepseekDefaultsServer(
           '',
         ].join('\n\n'))
       }
-      let timer = setTimeout(write, 25)
+      let timer = setTimeout(write, 60)
       response.once('close', () => { clearTimeout(timer) })
     })
   })
@@ -649,7 +649,7 @@ describe('headless stream-json snapshots', () => {
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
   it('keeps provider comments alive and sends DeepSeek defaults through the one-shot app', async () => {
-    const server = await deepseekDefaultsServer({ waitForTitleRequest: true })
+    const server = await deepseekDefaultsServer()
     try {
       const result = await runLoaderSmoke({
         label: 'DeepSeek adapter defaults headless stream-json snapshot',
@@ -672,8 +672,8 @@ describe('headless stream-json snapshots', () => {
       })
 
       expect(result.stderr).toBe('')
-      expect(server.requests.length).toBeGreaterThanOrEqual(2)
-      expect(new Set(server.paths)).toEqual(new Set(['/v1/messages']))
+      expect(server.requests).toHaveLength(2)
+      expect(server.paths).toEqual(['/v1/messages', '/v1/messages'])
       const agentRequest = server.requests.find(request => request.max_tokens === 256_000)
       const titleRequest = server.requests.find(isTitleRequest)
       expect(titleRequest?.max_tokens).toBe(TITLE_MAX_TOKENS)
