@@ -38,8 +38,9 @@ describe('experimental Inspector Host plugin', () => {
     const registerUpgrade = vi.fn<(_route: WebUpgradeRoute) => () => void>(() => releaseUpgrade)
     const routes: Pick<WebServer, 'register' | 'registerUpgrade'> = { register: registerRoute, registerUpgrade }
     let authenticated = false
-    const auth: Pick<BrowserAuth, 'isAuthenticated' | 'authenticateApi'> = {
+    const auth: Pick<BrowserAuth, 'isAuthenticated' | 'authenticateApi' | 'authenticate'> = {
       isAuthenticated: () => authenticated,
+      authenticate: () => (authenticated ? { authenticated: true } : { authenticated: false, reason: 'unauthenticated' }),
       authenticateApi: () => undefined,
     }
     context.provide('webServer', routes as WebServer)

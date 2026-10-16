@@ -118,6 +118,7 @@ describe('initializeProfileFromDefault', () => {
       expect(readProfileManifest('test', dir)).toEqual({
         name: 'dsh-profile-rescue',
         private: true,
+        packageManager: 'pnpm@11.28.5',
         dependencies: {},
         dsh: { profile: { bundles: [...PROFILE_TEMPLATES.web!.bundles] } },
       })

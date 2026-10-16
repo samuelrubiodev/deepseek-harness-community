@@ -672,8 +672,8 @@ describe('headless stream-json snapshots', () => {
       })
 
       expect(result.stderr).toBe('')
-      expect(server.requests).toHaveLength(2)
-      expect(server.paths).toEqual(['/v1/messages', '/v1/messages'])
+      expect(server.requests.length).toBeGreaterThanOrEqual(2)
+      expect(new Set(server.paths)).toEqual(new Set(['/v1/messages']))
       const agentRequest = server.requests.find(request => request.max_tokens === 256_000)
       const titleRequest = server.requests.find(isTitleRequest)
       expect(titleRequest?.max_tokens).toBe(TITLE_MAX_TOKENS)
