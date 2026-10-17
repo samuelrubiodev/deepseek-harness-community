@@ -854,7 +854,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     await expect.poll(() => terminals().length).toBe(1)
     expect(terminals()[0]!.id).not.toBe(previous)
     await terminal.getByRole('status').waitFor({ state: 'hidden' })
-    await terminal.getByRole('textbox', { name: 'Terminal', exact: true }).waitFor()
+    await terminal.getByRole('textbox', { name: 'Terminal', exact: true }).waitFor({ state: 'attached' })
   })
 
   it.skipIf(MODE === 'record')('omits blank reasoning rows around recorded text in an appended fixture turn', async () => {
