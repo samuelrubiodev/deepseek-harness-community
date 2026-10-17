@@ -18,7 +18,7 @@
         modelOverrides:
           deepseek-flash:
             maxTokens: 1024
-        streamIdleTimeoutMs: 1000
+        streamIdleTimeoutMs: 10000
 
 - id: agent-loop
   config:

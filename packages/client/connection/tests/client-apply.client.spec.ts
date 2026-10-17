@@ -6,10 +6,12 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   apply,
+  installConnection,
   type ClientConnectionRpc,
   type ClientTransportHooks,
   type ConnectionClientConfig,
   type ConnectionGenerationSource,
+  type ConnectionWebSocket,
   type RpcFetch,
   type ConnectionHandle,
   type ConnectionState,
@@ -155,6 +157,32 @@ describe('connection client apply', () => {
     ;(globalThis as Win).__DSH_TRUSTED_HOSTS__ = ['[invalid:ipv6']
     const handle = await mount()
     expect(handle.isLoopback).toBe(false)
+  })
+
+  it('installs with default options and delegates openWebSocket through the carrier', () => {
+    const ctx = new Context()
+    const fakeSocket: ConnectionWebSocket = {
+      readyState: 0,
+      send: vi.fn(),
+      close: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }
+    const createWebSocket = vi.fn(() => fakeSocket)
+    installConnection(ctx, {
+      transport: {
+        createWebSocket,
+        streamBaseUrl: 'http://127.0.0.1:3080/mount/',
+      },
+    })
+    const handle = ctx.get('connection') as ConnectionHandle
+    expect(handle.interactions).toBe('none')
+    expect(handle.openWebSocket('/api/stream')).toBe(fakeSocket)
+    expect(createWebSocket).toHaveBeenCalledWith('ws://127.0.0.1:3080/mount/api/stream')
+
+    const defaultCtx = new Context()
+    installConnection(defaultCtx)
+    expect((defaultCtx.get('connection') as ConnectionHandle).isLoopback).toBe(true)
   })
 
   it('requires one generation source and ignores a stale source disposer', async () => {

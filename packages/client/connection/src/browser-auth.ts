@@ -1,6 +1,8 @@
 /** Browser-session authentication for the Host Connection carrier. */
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import type { PeerId } from '@deepseek-ai/dsh-typert-protocol'
+import { CONNECT_PATH, type ConnectionInteractions } from './connect-protocol.ts'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import type {
@@ -31,6 +33,13 @@ interface BrowserCookiePayload {
   readonly issuedAt: number
   readonly expiresAt: number
 }
+
+interface ApiCookiePayload extends Omit<BrowserCookiePayload, 'version'> {
+  readonly version: 2
+  readonly id: PeerId
+}
+
+type CookiePayload = BrowserCookiePayload | ApiCookiePayload
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -129,15 +138,15 @@ function signature(secret: Buffer, body: string): Buffer {
   return createHmac('sha256', secret).update(body).digest()
 }
 
-function encodeCookie(payload: BrowserCookiePayload, secret: Buffer): string {
+function encodeCookie(payload: CookiePayload, secret: Buffer): string {
   const body = encodeBase64Url(Buffer.from(JSON.stringify(payload), 'utf8'))
-  return `v1.${body}.${encodeBase64Url(signature(secret, body))}`
+  return `v${payload.version}.${body}.${encodeBase64Url(signature(secret, body))}`
 }
 
-function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | undefined {
+function decodeCookie(value: string, secret: Buffer): CookiePayload | undefined {
   const parts = value.split('.')
   const [version, body, encodedSignature] = parts
-  if (parts.length !== 3 || version !== 'v1' || body === undefined || encodedSignature === undefined) {
+  if (parts.length !== 3 || (version !== 'v1' && version !== 'v2') || body === undefined || encodedSignature === undefined) {
     return undefined
   }
   const actualSignature = decodeBase64Url(encodedSignature)
@@ -154,11 +163,15 @@ function decodeCookie(value: string, secret: Buffer): BrowserCookiePayload | und
     return undefined
   }
   if (!isRecord(decoded)
-    || decoded.version !== COOKIE_PAYLOAD_VERSION
+    || (decoded.version !== COOKIE_PAYLOAD_VERSION && decoded.version !== 2)
+    || version !== `v${decoded.version}`
     || typeof decoded.authority !== 'string'
-    || !Number.isSafeInteger(decoded.issuedAt)
-    || !Number.isSafeInteger(decoded.expiresAt)) return undefined
-  return decoded as unknown as BrowserCookiePayload
+    || typeof decoded.issuedAt !== 'number' || !Number.isSafeInteger(decoded.issuedAt)
+    || typeof decoded.expiresAt !== 'number' || !Number.isSafeInteger(decoded.expiresAt)) return undefined
+  const payload = { authority: decoded.authority, issuedAt: decoded.issuedAt, expiresAt: decoded.expiresAt }
+  if (decoded.version === COOKIE_PAYLOAD_VERSION) return { version: COOKIE_PAYLOAD_VERSION, ...payload }
+  if (typeof decoded.id !== 'string' || decoded.id.length === 0) return undefined
+  return { version: 2, ...payload, id: decoded.id as PeerId }
 }
 
 async function initializeSecret(credentials: CredentialProvider): Promise<Buffer> {
@@ -350,36 +363,55 @@ export class BrowserAuth {
    */
   authenticate(request: ConnectionTrustRequest, secure = false): BrowserAuthResult {
     if (this.mode === 'none') return { authenticated: true }
-    const authority = requestAudience(request.headers, secure, this.reverseProxy)
-    if (authority === undefined) {
-      return { authenticated: false, reason: 'missing or unparseable request authority (Host)' }
-    }
-    const rawCookie = header(request.headers, 'cookie')
-    if (rawCookie === undefined) {
-      return { authenticated: false, reason: `missing Cookie header for authority "${authority}"` }
-    }
-    const value = cookieValue(rawCookie, cookieName(authority))
-    if (value === undefined) {
-      return { authenticated: false, reason: `missing session cookie for authority "${authority}"` }
-    }
-    const payload = decodeCookie(value, this.secret)
-    if (payload === undefined) {
-      return { authenticated: false, reason: `invalid or unparseable session cookie signature for authority "${authority}"` }
-    }
-    if (payload.authority !== authority) {
-      return { authenticated: false, reason: `session cookie authority mismatch ("${payload.authority}" vs "${authority}")` }
-    }
-    const now = Date.now()
-    if (payload.issuedAt > now) {
-      return { authenticated: false, reason: `session cookie issued in the future (issuedAt: ${String(payload.issuedAt)}, now: ${String(now)})` }
-    }
-    if (payload.expiresAt <= now) {
-      return { authenticated: false, reason: `session cookie expired at ${new Date(payload.expiresAt).toISOString()} (now: ${new Date(now).toISOString()})` }
-    }
-    if (payload.expiresAt <= payload.issuedAt || payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds) {
-      return { authenticated: false, reason: 'session cookie has invalid lifetime bounds' }
+    const result = this.verifyCookie(request, secure)
+    if ('reason' in result) return { authenticated: false, reason: result.reason }
+    if (result.payload.version !== COOKIE_PAYLOAD_VERSION) {
+      return { authenticated: false, reason: `session cookie is not a browser session cookie (version ${String(result.payload.version)})` }
     }
     return { authenticated: true }
+  }
+
+  /**
+   * Exchange the launch token for an independent API operator; omitted interactions default to none.
+   * @param req - trusted GET request on /connect with at most one interactions declaration.
+   * @param res - response owned to completion, redirecting to the API mux on success.
+   * @param secure - whether the receiving listener serves TLS.
+   * @param publish - synchronously create the operator before exposing its signed credential.
+   */
+  authorizeConnect(
+    req: ConnectionIndexRequest,
+    res: ConnectionIndexResponse,
+    secure: boolean,
+    publish: (interactions: ConnectionInteractions) => PeerId,
+  ): void {
+    const url = new URL(req.url ?? '/', 'http://dsh.invalid')
+    const declarations = url.searchParams.getAll('interactions')
+    const interactions = declarations[0] ?? 'none'
+    if (declarations.length > 1 || (interactions !== 'answer' && interactions !== 'none')) {
+      res.writeHead(400, { 'cache-control': 'no-store', 'content-type': 'text/plain; charset=utf-8' })
+      res.end('interactions must be declared once as answer or none\n')
+      return
+    }
+    const tokens = url.searchParams.getAll(TOKEN_QUERY)
+    const authority = requestAudience(req.headers, secure, this.reverseProxy)
+    if (req.method !== 'GET' || url.pathname !== CONNECT_PATH || tokens.length !== 1
+      || authority === undefined || !tokenMatches(tokens.join(''), this.launchToken)) {
+      this.writeUnauthorized(req, res)
+      return
+    }
+    const issuedAt = Date.now()
+    const expiresAt = issuedAt + this.maxAgeMilliseconds
+    const id = publish(interactions)
+    const value = encodeCookie({ version: 2, authority, id, issuedAt, expiresAt }, this.secret)
+    res.writeHead(302, {
+      'cache-control': 'no-store',
+      'location': './api/remote.mux',
+      'referrer-policy': 'no-referrer',
+      'set-cookie': sessionCookie(
+        cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1000), secure,
+      ),
+    })
+    res.end()
   }
 
   /**
@@ -390,6 +422,53 @@ export class BrowserAuth {
    */
   isAuthenticated(request: ConnectionTrustRequest, secure = false): boolean {
     return this.authenticate(request, secure).authenticated
+  }
+
+  /**
+   * Verify an API credential without creating or reviving its operator.
+   * @param request - request headers carrying Host and Cookie.
+   * @param secure - whether the receiving listener uses TLS.
+   * @returns the signed operator id, or undefined for invalid, expired, or browser cookies.
+   */
+  authenticateApi(request: ConnectionTrustRequest, secure = false): PeerId | undefined {
+    const result = this.verifyCookie(request, secure)
+    return 'payload' in result && result.payload.version === 2 ? result.payload.id : undefined
+  }
+
+  private verifyCookie(
+    request: ConnectionTrustRequest,
+    secure: boolean,
+  ): { readonly payload: CookiePayload } | { readonly reason: string } {
+    const authority = requestAudience(request.headers, secure, this.reverseProxy)
+    if (authority === undefined) {
+      return { reason: 'missing or unparseable request authority (Host)' }
+    }
+    const rawCookie = header(request.headers, 'cookie')
+    if (rawCookie === undefined) {
+      return { reason: `missing Cookie header for authority "${authority}"` }
+    }
+    const value = cookieValue(rawCookie, cookieName(authority))
+    if (value === undefined) {
+      return { reason: `missing session cookie for authority "${authority}"` }
+    }
+    const payload = decodeCookie(value, this.secret)
+    if (payload === undefined) {
+      return { reason: `invalid or unparseable session cookie signature for authority "${authority}"` }
+    }
+    if (payload.authority !== authority) {
+      return { reason: `session cookie authority mismatch ("${payload.authority}" vs "${authority}")` }
+    }
+    const now = Date.now()
+    if (payload.issuedAt > now) {
+      return { reason: `session cookie issued in the future (issuedAt: ${String(payload.issuedAt)}, now: ${String(now)})` }
+    }
+    if (payload.expiresAt <= now) {
+      return { reason: `session cookie expired at ${new Date(payload.expiresAt).toISOString()} (now: ${new Date(now).toISOString()})` }
+    }
+    if (payload.expiresAt <= payload.issuedAt || payload.expiresAt - payload.issuedAt > this.maxAgeMilliseconds) {
+      return { reason: 'session cookie has invalid lifetime bounds' }
+    }
+    return { payload }
   }
 
   private writeUnauthorized(req: ConnectionIndexRequest, res: ConnectionIndexResponse, reason?: string): void {

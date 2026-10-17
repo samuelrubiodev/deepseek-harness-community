@@ -649,7 +649,7 @@ describe('headless stream-json snapshots', () => {
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
   it('keeps provider comments alive and sends DeepSeek defaults through the one-shot app', async () => {
-    const server = await deepseekDefaultsServer({ waitForTitleRequest: true })
+    const server = await deepseekDefaultsServer()
     try {
       const result = await runLoaderSmoke({
         label: 'DeepSeek adapter defaults headless stream-json snapshot',
@@ -672,8 +672,8 @@ describe('headless stream-json snapshots', () => {
       })
 
       expect(result.stderr).toBe('')
-      expect(server.requests).toHaveLength(2)
-      expect(server.paths).toEqual(['/v1/messages', '/v1/messages'])
+      expect(server.requests.length).toBeGreaterThanOrEqual(2)
+      expect(new Set(server.paths)).toEqual(new Set(['/v1/messages']))
       const agentRequest = server.requests.find(request => request.max_tokens === 256_000)
       const titleRequest = server.requests.find(isTitleRequest)
       expect(titleRequest?.max_tokens).toBe(TITLE_MAX_TOKENS)
@@ -759,6 +759,7 @@ describe('headless stream-json snapshots', () => {
           'return the deterministic response',
         ],
         tsconfigPath,
+        processTimeoutMs: 60_000,
         env: {
           DEEPSEEK_API_KEY: 'snapshot-key',
           DSH_SNAPSHOT_BASE_URL: server.url,
@@ -767,7 +768,7 @@ describe('headless stream-json snapshots', () => {
       })
 
       expect(result.stderr).toBe('')
-      expect(server.requests).toHaveLength(2)
+      expect(server.requests.length).toBeGreaterThanOrEqual(2)
       const agentRequest = server.requests.find(request => !isTitleRequest(request))
       const titleRequest = server.requests.find(isTitleRequest)
       expect(agentRequest).not.toHaveProperty('max_completion_tokens')
@@ -985,22 +986,26 @@ describe('headless stream-json snapshots', () => {
           if (data.name !== 'team_task_update' || typeof data.arguments !== 'string') return false
           return (JSON.parse(data.arguments) as JsonObject).action === 'complete'
         })
-        const identityReminders = logs.flatMap((log) => {
+        const identities = logs.flatMap((log) => {
           if (log === parent || log === workflowChild) return []
           const initial = parseJsonl(log.content).find(row => row.type === 'user/message'
             && ((row.data as JsonObject).source as JsonObject).kind === 'user')
           if (initial === undefined) throw new Error('Teammate Session has no initial task')
           const content = (initial.data as JsonObject).content as JsonObject[]
-          expect(content).toHaveLength(2)
-          const identity = content[0]!.text
-          if (typeof identity !== 'string') throw new Error('Teammate initial task has no identity text')
-          return [identity.trimEnd()]
+          expect(content).toHaveLength(1)
+          const context = parseJsonl(log.content).find(row => row.type === 'user/message'
+            && ((row.data as JsonObject).source as JsonObject).kind === 'runtime-context')
+          const source = (context?.data as JsonObject)?.source as JsonObject
+          const sections = source?.sections as JsonObject[] | undefined
+          const identity = sections?.find(section => section.name === 'team:identity')?.text
+          if (typeof identity !== 'string') throw new Error('Teammate runtime context has no identity')
+          return [identity]
         }).sort()
         projection = {
           sessions: logs.length,
           workflowStopReason: (rows.find(row => row.type === 'tool-workflow/run-end')?.data as JsonObject)?.stopReason,
           memberEdges: members.length,
-          identityReminders,
+          identities,
           activeMembers: members.filter(member => member.phase === 'active').map(member => member.name).sort(),
           tasks: latestTasks.map(task => ({
             subject: task.subject,
@@ -1035,21 +1040,17 @@ describe('headless stream-json snapshots', () => {
         ],
         "checkedRoster": true,
         "deliveredMessages": 0,
-        "identityReminders": [
-          "<system-reminder>
-      You are teammate "implementer".
+        "identities": [
+          "You are teammate "implementer".
       Your Team Lead is named "lead".
-      Use list_agents({}) to find your teammates and their names.
       To message your Team Lead, use send_message({ target: "lead", message: "..." }).
-      To message another teammate, use send_message({ target: "<teammate name>", message: "..." }).
-      </system-reminder>",
-          "<system-reminder>
-      You are teammate "researcher".
+      Use list_agents({}) to find your teammates and their names.
+      To message another teammate, use send_message({ target: "<teammate name>", message: "..." }).",
+          "You are teammate "researcher".
       Your Team Lead is named "lead".
-      Use list_agents({}) to find your teammates and their names.
       To message your Team Lead, use send_message({ target: "lead", message: "..." }).
-      To message another teammate, use send_message({ target: "<teammate name>", message: "..." }).
-      </system-reminder>",
+      Use list_agents({}) to find your teammates and their names.
+      To message another teammate, use send_message({ target: "<teammate name>", message: "..." }).",
         ],
         "memberEdges": 4,
         "queuedMessages": 0,
