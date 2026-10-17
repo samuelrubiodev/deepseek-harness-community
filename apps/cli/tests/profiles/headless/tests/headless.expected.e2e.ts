@@ -759,6 +759,7 @@ describe('headless stream-json snapshots', () => {
           'return the deterministic response',
         ],
         tsconfigPath,
+        processTimeoutMs: 60_000,
         env: {
           DEEPSEEK_API_KEY: 'snapshot-key',
           DSH_SNAPSHOT_BASE_URL: server.url,
