@@ -34,6 +34,21 @@ export function localMacOSPackageEnvironment(environment = process.env) {
 }
 
 /**
+ * Select local Windows test defaults without reading dotenv files or inheriting release settings.
+ * @param {NodeJS.ProcessEnv} environment Parent environment, retained for build tools and networking.
+ * @returns {NodeJS.ProcessEnv} Unsigned build environment with the standard application identifier and no update policy.
+ */
+export function localWindowsPackageEnvironment(environment = process.env) {
+  return {
+    ...Object.fromEntries(Object.entries(environment).filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name))),
+    DSH_DESKTOP_APP_ID: 'com.deepseek.harness',
+    DSH_DESKTOP_UNSIGNED: '1',
+    DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://github.com',
+    DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: '{"allowedAuthOrigins":["https://github.com"]}',
+  }
+}
+
+/**
  * Read a machine preset when selected, otherwise the target's required dotenv; no ambient release fallback.
  * PACKAGE_TEST_RELEASE_ID overrides the test preset only; blank retains its configured ID.
  * @param {'win32' | 'darwin'} platform Target platform.

@@ -8,6 +8,13 @@
 export function localMacOSPackageEnvironment(environment?: NodeJS.ProcessEnv): NodeJS.ProcessEnv
 
 /**
+ * Select local Windows test defaults without reading dotenv files or inheriting release settings.
+ * @param environment Parent environment, retained for build tools and networking.
+ * @returns Unsigned build environment with the standard application identifier and no update policy.
+ */
+export function localWindowsPackageEnvironment(environment?: NodeJS.ProcessEnv): NodeJS.ProcessEnv
+
+/**
  * Read a machine preset when selected, otherwise the target's required dotenv; no ambient release fallback.
  * PACKAGE_TEST_RELEASE_ID overrides the test preset only; blank retains its configured ID.
  * @param platform Target platform.

@@ -109,7 +109,11 @@ jobs:
             }
           }
 
-          let footer = `### 📦 Docker Images (GHCR)\n\n`;
+          let footer = `### 💻 Desktop Applications\n\n`;
+          footer += `- **Windows (x64)**: Native \`.exe\` installer attached below.\n`;
+          footer += `- **macOS (Apple Silicon)**: Native \`.dmg\` installer attached below.\n\n`;
+
+          footer += `### 📦 Docker Images (GHCR)\n\n`;
           footer += `- \`ghcr.io/${repo}:${tag}\`\n`;
           footer += `- \`ghcr.io/${repo}:stable\`\n`;
           footer += `- \`ghcr.io/${repo}:latest\`\n\n`;
