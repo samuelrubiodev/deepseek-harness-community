@@ -131,7 +131,12 @@ export class HostConnectionService extends Service implements HostConnectionHand
     if (!this.isTrusted(request)) return { rejection: 403 }
     if (this.disposed) return { rejection: 401 }
     const secure = this.owner.get('webServer')?.protocol === 'https:'
-    const auth = this.browserAuth.authenticate(request, secure)
+    const auth = typeof this.browserAuth.authenticate === 'function'
+      ? this.browserAuth.authenticate(request, secure)
+      : {
+        authenticated: this.browserAuth.isAuthenticated(request, secure),
+        reason: 'unauthenticated session',
+      }
     if (auth.authenticated) return { peer: this.browserPeer }
     const id = this.browserAuth.authenticateApi(request, secure)
     const record = id === undefined ? undefined : this.peers.get(id)

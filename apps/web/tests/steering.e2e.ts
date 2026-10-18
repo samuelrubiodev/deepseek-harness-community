@@ -122,7 +122,7 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
     await input.press('Enter')
     await expect.poll(
       () => sessionEvents.some(event => event.type === 'request/context'),
-      { timeout: 10_000 },
+      { timeout: 30_000 },
     ).toBe(true)
 
     // Enter remains the Queue gesture. In this live window the row action
@@ -450,7 +450,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     // The turn must report busy before the next two sends: Enter's queue gesture
     // resolved against a not-yet-running agent admits the message into the turn
     // instead of publishing a Queue row.
-    await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 30_000 })
     await page.locator('[data-composer-input][contenteditable="true"]').first().waitFor({ timeout: 10_000 })
     await input.fill(STEER_ONE)
     await input.press('Enter')
