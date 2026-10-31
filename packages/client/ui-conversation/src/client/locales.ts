@@ -841,7 +841,6 @@ export const es = {
   'hero.chooseWorkspace': 'Elegir espacio de trabajo',
   'session.hierarchy': 'Jerarquía de la sesión',
   'session.moreViews': 'Más vistas de conversación',
-  'session.moreViewsCurrent': 'Más vistas de conversación · {name}',
   'todo.title': 'Tareas',
   'todo.progress.done': '{done} completadas',
   'todo.progress.active': '{active} en progreso',
