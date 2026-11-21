@@ -19,6 +19,13 @@
     root: !!js dshHomePath('sessions')
     compression: !!js "process.env.DSH_SNAPSHOT === undefined ? 'zstd' : 'none'"
 
+# The committed fixture records the acceptance watermark, so this scenario opts
+# into the contribution instead of relying on the shipped deny default.
+- id: session-log-deepseek
+  name: '@deepseek-ai/dsh-session-log-deepseek'
+  config:
+    enabled: true
+
 - id: tool-subagent
   name: '@deepseek-ai/dsh-tool-subagent'
   config:

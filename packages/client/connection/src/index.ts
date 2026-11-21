@@ -52,19 +52,15 @@ export {
   serverResponseSchema,
 } from './rpc-schema.ts'
 export { HostConnectionService } from './rpc-host.ts'
-export {
-  assertTrustedAuthority,
-  evaluateApiRequestTrust,
-  isTrustedApiRequest,
-  type ApiRequestTrustResult,
-  type TrustedApiRequestOptions,
+export type {
+  ApiRequestTrustResult,
+  TrustedApiRequestOptions,
 } from './api-request-trust.ts'
-export {
-  BrowserAuth,
-  type BrowserAuthLogger,
-  type BrowserAuthMode,
-  type BrowserAuthOptions,
-  type BrowserAuthResult,
+export type {
+  BrowserAuthLogger,
+  BrowserAuthMode,
+  BrowserAuthOptions,
+  BrowserAuthResult,
 } from './browser-auth.ts'
 
 export { API_PATH } from './api-path.ts'

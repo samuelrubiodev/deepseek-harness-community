@@ -558,7 +558,7 @@ export class WebServer extends Service {
       }
       if (typeof responder === 'function') await responder(req, res)
       else if ('resource' in responder) {
-        if (req.method !== 'GET' && req.method !== 'HEAD' && 'fallbackMethodHandler' in responder && responder.fallbackMethodHandler !== undefined) {
+        if (req.method !== 'GET' && req.method !== 'HEAD' && 'fallbackMethodHandler' in responder) {
           await responder.fallbackMethodHandler(req, res)
         } else {
           await this.serveResource(req, res, target, responder.resource)
