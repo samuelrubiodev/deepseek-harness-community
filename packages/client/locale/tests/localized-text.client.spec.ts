@@ -30,7 +30,7 @@ describe('package text resolution', () => {
     expect(locale.resolveText({ en: 'English description' })).toBe('English description')
     expect(locale.resolveText({ en: 'Fallback', zh: '' })).toBe('')
     expect(locale.getSnapshot()).toBe(snapshot)
-    expect(snapshot.locales.map(item => item.id)).toEqual(['zh', 'en', 'es'])
+    expect(snapshot.locales.map(item => item.id)).toEqual(['zh', 'en'])
 
     locale.setLocale('en')
     expect(locale.resolveText(title)).toBe('Tools')

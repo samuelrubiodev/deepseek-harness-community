@@ -15,7 +15,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createRequire } from 'node:module'
-import { networkInterfaces } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -33,14 +32,10 @@ import {
   handleProxyUpgradeFallback,
   PROXY_ROUTE_PREFIX,
 } from './proxy.ts'
-
-export {
-  handleProxyRequest,
-  handleProxyUpgrade,
-  handleProxyUpgradeFallback,
-  PROXY_ROUTE_PREFIX,
-} from './proxy.ts'
+import { resolveLanTrust } from './lan-trust.ts'
 import { parsePublicUrl } from './public-url.ts'
+
+export type { WebRuntimeValues } from './lan-trust.ts'
 
 /** The Web GUI this process serves, provided by the `web-runtime` row. */
 export interface WebApp {
@@ -130,37 +125,6 @@ try {
   process.exitCode = 1
 }
 `
-
-/** The webserver schema's all-interfaces bind literal. */
-export const ALL_INTERFACES_HOST = '0.0.0.0'
-
-/** Bind-dependent Web values shared by the trust fence and URL display. */
-export interface WebRuntimeValues {
-  /** LAN IPv4 literals sampled once when the server binds all interfaces. */
-  lanAddresses: string[]
-  /** LAN literals followed by explicit invocation authorities. */
-  trustedHosts: string[]
-}
-
-/**
- * Resolve one LAN-trust snapshot from the active server bind.
- * @param bindHost - the active webserver bind host.
- * @param extra - explicit `--trusted-host` values, in argument order.
- * @returns the LAN display addresses and invocation-derived fence authorities.
- */
-export function resolveLanTrust(bindHost: string, extra: readonly string[]): WebRuntimeValues {
-  const lanAddresses = bindHost === ALL_INTERFACES_HOST
-    ? Object.values(networkInterfaces()).flat()
-      .filter((iface): iface is NonNullable<typeof iface> => iface !== undefined && iface.family === 'IPv4' && !iface.internal)
-      .map(iface => iface.address)
-    : []
-  const envTrusted = (process.env.DSH_TRUSTED_HOSTS ?? '')
-    .split(',')
-    .map(entry => entry.trim())
-    .filter(entry => entry.length > 0)
-  const combined = Array.from(new Set([...lanAddresses, ...envTrusted, ...extra]))
-  return { lanAddresses, trustedHosts: combined }
-}
 
 /**
  * Dist location is workspace knowledge of this bundle: anchored on the

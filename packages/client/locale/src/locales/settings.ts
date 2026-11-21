@@ -13,7 +13,32 @@ export const en = {
   'language.title': 'Language',
 } satisfies Record<SettingsLocaleKey, string>
 
-/** Spanish dictionary, checked complete against the zh key set. */
+/** Japanese copy, checked against the English keys. */
+export const ja = {
+  'language.title': '言語',
+} satisfies Record<keyof typeof en, string>
+
+/** Spanish dictionary, checked against the English keys. */
 export const es = {
   'language.title': 'Idioma',
-} satisfies Record<SettingsLocaleKey, string>
+} satisfies Record<keyof typeof en, string>
+
+/** French dictionary, checked against the English keys. */
+export const fr = {
+  'language.title': 'Langue',
+} satisfies Record<keyof typeof en, string>
+
+/** German dictionary, checked against the English keys. */
+export const de = {
+  'language.title': 'Sprache',
+} satisfies Record<keyof typeof en, string>
+
+/** Russian dictionary, checked against the English keys. */
+export const ru = {
+  'language.title': 'Язык',
+} satisfies Record<keyof typeof en, string>
+
+/** Portuguese dictionary, checked against the English keys. */
+export const pt = {
+  'language.title': 'Idioma',
+} satisfies Record<keyof typeof en, string>

@@ -1,3 +1,4 @@
+import { es, fr, de, ru, pt } from '../src/client/locales.ts'
 /**
  * ui-skill browser half: source and keyed toolview registration +
  * locale dictionaries + source duplicate-name proof +
@@ -141,6 +142,7 @@ describe('apply', () => {
     expect(entry?.component).toBe(SkillToolRow)
     expect(presentation.dictionaries).toEqual([{
       namespace: 'skill', dictionaries: {
+        es, fr, de, ru, pt,
         zh: {
           'row.title': '加载技能',
           'row.running': '正在加载 skill',
@@ -161,20 +163,19 @@ describe('apply', () => {
           'row.inspect': 'Inspect',
           'menu.userOnly': 'user-only',
         },
-        es: {
-          'row.title': 'Habilidad',
-          'row.running': 'Cargando habilidad',
-          'row.preparing': 'Preparando para cargar una habilidad',
-          'row.failed': 'Error al cargar la habilidad',
-          'row.stopped': 'Carga de la habilidad detenida',
-          'row.instructions': 'Instrucciones',
-          'row.inspect': 'Inspeccionar',
-          'menu.userOnly': 'solo usuario',
+        ja: {
+          'row.title': 'スキル',
+          'row.running': 'スキルを読み込み中',
+          'row.preparing': 'スキルの読み込みを準備中',
+          'row.failed': 'スキルの読み込みに失敗しました',
+          'row.stopped': 'スキルの読み込みが停止しました',
+          'row.instructions': '手順',
+          'row.inspect': '詳細を確認',
+          'menu.userOnly': 'ユーザー専用',
         },
       },
     }])
   })
-
 
   it('registers the "/" skill source; disposal frees the name (HMR safety)', async () => {
     const ctx = new Context()

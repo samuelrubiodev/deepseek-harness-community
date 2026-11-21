@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import type { LocaleSettings, LocaleSnapshot } from '@deepseek-ai/dsh-client-locale/client'
+import { zh, en, ja } from '../src/locales/settings.ts'
 import { FALLBACK_LOCALE, LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 const make = (host?: StubConfigForm<LocaleSettings>): {
   ctx: Context
@@ -34,6 +35,24 @@ describe('LocaleRuntime', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('checks additional dictionaries against the declared namespace and requires both baseline locales', () => {
+    const { svc } = make()
+    svc.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' })
+    const dispose = svc.register('settings.locale', { zh, en, ja, fr: ja })
+    svc.setLocale('ja')
+    expect(svc.bind('settings.locale')('language.title')).toBe('言語')
+    dispose()
+    expect(svc.bind('settings.locale')('language.title')).toBe('language.title')
+    if (false) {
+      // @ts-expect-error additional locales require the declared namespace's keys
+      svc.register('settings.locale', { zh, en, ja: { other: '別' } })
+      // @ts-expect-error additional locales cannot omit a namespace key
+      svc.register('settings.locale', { zh, en, ja: {} })
+      // @ts-expect-error additional locales do not replace the English baseline
+      svc.register('settings.locale', { zh, ja })
+    }
   })
 
   it('translates through the active-locale -> en -> key chain', () => {
@@ -197,7 +216,7 @@ describe('LocaleRuntime', () => {
 
     dispose()
     expect(svc.getLocale().active).toBe('zh')
-    expect(svc.getLocale().locales.map(locale => locale.id)).toEqual(['zh', 'en', 'es'])
+    expect(svc.getLocale().locales.map(locale => locale.id)).toEqual(['zh', 'en'])
     expect(svc.bind('ns')('hello')).toBe('Hello')
     const revision = svc.getLocale().revision
     dispose()
@@ -273,7 +292,7 @@ describe('LocaleRuntime', () => {
       .toThrow('locale fallback "fr" is not registered')
     expect(() => svc.addLanguage({ id: 'fr', label: 'Français', fallback: 'fr-CA' }))
       .toThrow('fallback cycle')
-    expect(svc.getLocale().locales.map(locale => locale.id)).toEqual(['zh', 'en', 'es', 'fr-CA'])
+    expect(svc.getLocale().locales.map(locale => locale.id)).toEqual(['zh', 'en', 'fr-CA'])
   })
 
   it('adopts a saved external locale when its definition registers later', () => {
@@ -388,12 +407,11 @@ describe('LocaleRuntime', () => {
     expect(svc.bind('ns2')('onlyZh')).toBe('onlyZh')
   })
 
-  it('starts with exactly the three shipped locales and their fallback relation', () => {
+  it('starts with exactly the two shipped locales and their fallback relation', () => {
     const { svc } = make()
     expect(svc.getLocale().locales).toEqual([
       { id: 'zh', label: '中文', fallback: 'en' },
       { id: 'en', label: 'English' },
-      { id: 'es', label: 'Español', fallback: 'en' },
     ])
   })
 })
