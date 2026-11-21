@@ -49,10 +49,12 @@ function evaluateCondition(expression: string, cancelled: boolean, results: stri
   }, { timeout: 1000 }) as boolean
 }
 
+const verdicts = [['ci.yml', 'all-checks-passed'], ['ci-windows.yml', 'windows-checks-passed'], ['ci-python.yml', 'python-checks-passed']] as const
+
 describe.skip('master-only platform scheduling', () => {
-  it.each(['success', 'failure', 'skipped', 'cancelled'])(
-    'reports %s dependencies in active runs but never starts a cancelled-run verdict', (result) => {
-      const aggregate = workflow('ci.yml').jobs['all-checks-passed']!
+  it.each(verdicts.flatMap(([file, job]) => ['success', 'failure', 'skipped', 'cancelled'].map(result => [file, job, result] as const)))(
+    '%s %s reports %s dependencies in active runs but never starts a cancelled-run verdict', (file, job, result) => {
+      const aggregate = workflow(file).jobs[job]!
       const results = aggregate.needs!.map(() => 'success')
       results[0] = result
       const condition = aggregate.if as string
@@ -71,8 +73,8 @@ describe.skip('master-only platform scheduling', () => {
     expect(evaluateCondition("always() && github.event_name == 'pull_request'", true, ['success'])).toBe(true)
     expect(evaluateCondition(workflow('ci.yml').jobs['all-checks-passed']!.if as string, true, ['success'])).toBe(false)
   })
-  it('keeps only Linux and Windows x64 runtimes in required PR CI', () => {
-    const pr = workflow('ci.yml')
+  it('keeps the required Python PR verdict and its two x64 targets in CI Python', () => {
+    const pr = workflow('ci-python.yml')
     expect(Object.keys(pr.on)).toEqual(['pull_request'])
     expect(pr.jobs['python-runtime']).toMatchObject({
       if: "github.event_name == 'pull_request'",
@@ -81,7 +83,7 @@ describe.skip('master-only platform scheduling', () => {
     })
     expect(pr.jobs.windows).toBeUndefined()
     expect(JSON.stringify(pr.jobs)).not.toMatch(/wine-windows-gates|check:windows-wine/)
-    const aggregate = pr.jobs['all-checks-passed']!
+    const aggregate = pr.jobs['python-checks-passed']!
     expect(aggregate.needs).toContain('python-runtime')
     expect(aggregate.needs).not.toContain('windows')
     expect(aggregate.needs!.every(id => id in pr.jobs)).toBe(true)
@@ -89,6 +91,9 @@ describe.skip('master-only platform scheduling', () => {
     expect(aggregate.steps).toContainEqual(expect.objectContaining({
       if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')",
     }))
+    for (const file of ['ci.yml', 'ci-windows.yml']) {
+      expect(workflow(file).jobs['python-runtime']).toBeUndefined()
+    }
   })
 
   it('runs all three deferred carriers on master pushes with fail-loud API credentials', () => {
@@ -120,7 +125,10 @@ describe.skip('master-only platform scheduling', () => {
   it('runs Wine once on hosted master CI and seeds its own apt cache', () => {
     const master = workflow('ci-master.yml')
     const wine = master.jobs.windows!
-    expect(wine).toMatchObject({ if: masterPush, 'runs-on': 'ubuntu-latest' })
+    expect(wine).toMatchObject({
+      if: "(github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')",
+      'runs-on': 'ubuntu-latest',
+    })
     expect(wine.needs).toBeUndefined()
     expect(wine['continue-on-error']).toBeUndefined()
     expect(master.jobs['wine-apt-cache']).toBeUndefined()

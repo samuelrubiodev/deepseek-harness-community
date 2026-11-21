@@ -15,6 +15,7 @@ function property(nodes: readonly SchemaNode[], index: number, name: string): nu
   return field.type
 }
 
+// Whole-repository schema extraction needs the same budget as persistence-schema.spec.ts and Windows coverage.
 it('requires compatibility review before request headers can carry retired system text', { timeout: 120_000 }, () => {
   const inventory = extractPersistenceSchema(resolve(import.meta.dirname, '..'))
   const before = inventory.roots.find(root => root.key === 'event:request/header')

@@ -1,8 +1,9 @@
-import type { CommonKey } from './zh.ts'
+/** Spanish common-namespace dictionary. */
+import type { en } from './en.ts'
 
-/** es base dictionary for the common namespace, checked complete against the zh key set. */
+/** Complete Spanish copy for the common namespace. */
 export const es = {
-  'ok': 'Aceptar',
+  'ok': 'OK',
   'cancel': 'Cancelar',
   'close': 'Cerrar',
   'copy': 'Copiar',
@@ -10,21 +11,21 @@ export const es = {
   'codeBlock.title': 'Bloque de código',
   'codeBlock.wrap': 'Ajustar líneas',
   'codeBlock.unwrap': 'No ajustar líneas',
-  'copy.failed': 'Error al copiar',
+  'copy.failed': 'Copia fallida',
   'copy.value': 'Copiar valor',
   'copy.json': 'Copiar JSON',
   'copy.path': 'Copiar ruta de propiedad',
-  'copy.prettyJson': 'Copiar JSON formateado',
+  'copy.prettyJson': 'Copiar JSON con formato',
   'copy.compactJson': 'Copiar JSON compacto',
-  'copy.optionsHint': '{action}; clic derecho para opciones de copiado',
+  'copy.optionsHint': '{action}; haga clic derecho para opciones de copia',
   'retry': 'Reintentar',
   'loading': 'Cargando…',
-  'load.failed': 'Error al cargar',
+  'load.failed': 'No se pudo cargar',
   'submit': 'Enviar',
   'submitting': 'Enviando…',
   'next': 'Siguiente',
   'previous': 'Anterior',
-  'skip': 'Omitir',
+  'skip': 'Saltar',
   'delete': 'Eliminar',
   'edit': 'Editar',
   'save': 'Guardar',
@@ -33,14 +34,14 @@ export const es = {
   'collapse': 'Contraer',
   'expand': 'Expandir',
   'back': 'Atrás',
-  'brand.localBuild': 'Compilación local DSH',
+  'brand.localBuild': 'Compilación local de DSH',
   'workspace.defaultName': 'Espacio de trabajo predeterminado',
   'unknown': 'Desconocido',
   'none': 'Ninguno',
   'truncated': 'Truncado',
   'json.label': 'JSON',
-  'markdown.footnotes': 'Notas al pie',
+  'markdown.footnotes': 'Notas a pie de página',
   'markdown.truncatedCharacters': '… truncado a {total} caracteres',
   'number.thousand': '{value}K',
   'number.million': '{value}M',
-} satisfies Record<CommonKey, string>
+} satisfies Record<keyof typeof en, string>
