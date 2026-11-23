@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import WebRuntime from '@deepseek-ai/dsh-web'
+import DeepSeekAuth from '@deepseek-ai/dsh-deepseek-auth'
 import * as deepseekPlugin from '@deepseek-ai/dsh-web-search-deepseek'
 
 function jsonResponse(body: unknown): Response {
@@ -27,6 +28,7 @@ const ONE_RESULT = {
 async function boot() {
   const ctx = new Context()
   await ctx.plugin(WebRuntime, {})
+  await ctx.plugin(DeepSeekAuth)
   const live = await liveConfig(ctx, deepseekPlugin, { apiKey: 'ds-key', baseURL: 'https://search.entry.test/v1' })
   return { ctx, live }
 
@@ -68,6 +70,7 @@ describe('web-search-deepseek settings section', () => {
     vi.stubEnv('DEEPSEEK_SEARCH_BASE_URL', 'https://search.env.test/v1')
     const ctx = new Context()
     await ctx.plugin(WebRuntime, {})
+    await ctx.plugin(DeepSeekAuth)
     const live = await liveConfig(ctx, deepseekPlugin, { apiKey: 'ds-key', baseURL: '' })
     expect(await searchOnce(ctx)).toContain('https://search.env.test/v1')
 

@@ -12,9 +12,8 @@
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import * as yaml from 'js-yaml'
 import { describe, expect, it } from 'vitest'
-import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
+import { parseEntryYaml } from '@deepseek-ai/cordis-plugin-include'
 import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
 
 /** One shipped row's privacy-relevant shape. */
@@ -26,9 +25,8 @@ interface ShippedRow {
 
 /** Parse one shipped bundle patch file exactly as the Loader would. */
 function shippedRows(relative: string): ShippedRow[] {
-  const parsed = yaml.load(
+  const parsed = parseEntryYaml(
     readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8'),
-    { schema: entryListSchema },
   )
   if (!Array.isArray(parsed)) throw new Error(`${relative}: patch file must parse to a patch list`)
   return parsed.flatMap(patch =>
