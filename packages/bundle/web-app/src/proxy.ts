@@ -17,7 +17,16 @@ import type { Context } from '@deepseek-ai/cordis'
 
 /** Trust surface consumed here; the browser-side connection package owns the full type. */
 export interface ProxyConnection {
-  requestRejection(request: { readonly headers: IncomingMessage['headers'] }): 401 | 403 | undefined
+  admit?: (request: { readonly headers: IncomingMessage['headers'] }) => { readonly rejection: 401 | 403 | 503 } | { readonly peer: unknown }
+  requestRejection?: (request: { readonly headers: IncomingMessage['headers'] }) => 401 | 403 | undefined
+}
+
+function proxyRejection(conn: ProxyConnection, req: IncomingMessage): 401 | 403 | 503 | undefined {
+  if (typeof conn.admit === 'function') {
+    const admission = conn.admit(req)
+    return 'rejection' in admission ? admission.rejection : undefined
+  }
+  return conn.requestRejection?.(req)
 }
 
 interface ContextServices {
@@ -245,15 +254,17 @@ export async function handleProxyRequest(
     const conn = explicitConnection ?? connectionOf(ctx)
     if (conn !== undefined) {
       try {
-        const rejection = conn.requestRejection(req)
+        const rejection = proxyRejection(conn, req)
         if (rejection !== undefined) {
           res.statusCode = rejection
           res.setHeader('content-type', 'application/json; charset=utf-8')
           res.end(JSON.stringify({
-            error: rejection === 401 ? 'unauthorized' : 'forbidden',
+            error: rejection === 401 ? 'unauthorized' : rejection === 503 ? 'authentication unavailable' : 'forbidden',
             message: rejection === 401
               ? 'Authentication required. Please authenticate in the DeepSeek Harness Web UI first.'
-              : 'Access forbidden by trust fence.',
+              : rejection === 503
+                ? 'Authentication unavailable.'
+                : 'Access forbidden by trust fence.',
           }))
           return
         }
@@ -487,9 +498,9 @@ export async function handleProxyUpgrade(
   const conn = explicitConnection ?? connectionOf(ctx)
   if (conn !== undefined) {
     try {
-      const rejection = conn.requestRejection(req)
+      const rejection = proxyRejection(conn, req)
       if (rejection !== undefined) {
-        socket.write(`HTTP/1.1 ${String(rejection)} ${rejection === 401 ? 'Unauthorized' : 'Forbidden'}\r\n\r\n`)
+        socket.write(`HTTP/1.1 ${String(rejection)} ${rejection === 401 ? 'Unauthorized' : rejection === 503 ? 'Service Unavailable' : 'Forbidden'}\r\n\r\n`)
         socket.destroy()
         return
       }

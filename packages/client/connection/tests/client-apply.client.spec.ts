@@ -9,13 +9,14 @@ import {
   installConnection,
   type ClientConnectionRpc,
   type ClientTransportHooks,
-  type ConnectionClientConfig,
   type ConnectionGenerationSource,
   type ConnectionWebSocket,
   type RpcFetch,
   type ConnectionHandle,
   type ConnectionState,
 } from '../src/client/index.ts'
+import type { ConnectionRecoveryConfig } from '../src/recovery-config.ts'
+import { syncedConnectionConfig as synced } from './synced-config.client.ts'
 
 type Win = {
   location?: { hostname: string; origin?: string; search?: string }
@@ -69,8 +70,16 @@ function installGeneration(handle: ConnectionHandle): GenerationProbe {
   return probe
 }
 
-async function mount(config?: ConnectionClientConfig): Promise<ConnectionHandle> {
+async function mount(recovery?: ConnectionRecoveryConfig, trustedHosts?: string[]): Promise<ConnectionHandle> {
   const ctx = new Context()
+  const config = synced(recovery)
+  if (trustedHosts !== undefined) {
+    ;(config as Record<string, unknown>).trustedHosts = {
+      get: () => trustedHosts,
+      getSnapshot: () => trustedHosts,
+      subscribe: () => () => {},
+    }
+  }
   await ctx.plugin({ apply, inject: [] }, config)
   const handle = ctx.get('connection') as ConnectionHandle | undefined
   if (handle === undefined) throw new Error('ctx.connection not provided')
@@ -78,13 +87,10 @@ async function mount(config?: ConnectionClientConfig): Promise<ConnectionHandle>
 }
 
 describe('connection client apply', () => {
-  it('uses Host bootstrap timing when Gateway starts without overrides', async () => {
+  it('uses Host-synced timing when Gateway starts without overrides', async () => {
     vi.useFakeTimers()
-    vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', {
-      backoffBaseMs: 10, backoffMaxMs: 10, generationReadyTimeoutMs: 20,
-    })
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const handle = await mount()
+    const handle = await mount({ backoffBaseMs: 10, backoffMaxMs: 10, generationReadyTimeoutMs: 20 })
     const signals: AbortSignal[] = []
     handle.registerGenerationSource(signal => new Promise<void>((resolve) => {
       signals.push(signal)
@@ -104,10 +110,9 @@ describe('connection client apply', () => {
     }
   })
 
-  it.each([{ generationReadyTimeoutMs: 0 }, { backoffFactor: NaN }])('rejects malformed bootstrap recovery before publishing the service: %j', (recovery) => {
-    vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', recovery)
+  it.each([{ generationReadyTimeoutMs: 0 }, { backoffFactor: NaN }])('rejects malformed synced recovery before publishing the service: %j', (recovery) => {
     const ctx = new Context()
-    expect(() => { apply(ctx) }).toThrow()
+    expect(() => { apply(ctx, synced(recovery)) }).toThrow()
     expect(ctx.get('connection')).toBeUndefined()
   })
 
@@ -141,7 +146,7 @@ describe('connection client apply', () => {
 
   it('reports trusted non-loopback page authority as authorized via config', async () => {
     ;(globalThis as Win).location = { hostname: 'harness.lan', search: '' }
-    const handle = await mount({ trustedHosts: ['harness.lan:3080'] })
+    const handle = await mount(undefined, ['harness.lan:3080'])
     expect(handle.isLoopback).toBe(true)
   })
 

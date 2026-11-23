@@ -3,31 +3,27 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
-import type {} from '@deepseek-ai/dsh-credentials'
 // Activates the webServer Context merge used below.
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH } from './api-path.ts'
-import { CONNECT_PATH } from './connect-protocol.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
-import { BrowserAuth, type BrowserAuthMode } from './browser-auth.ts'
 import { HostConnectionService } from './rpc-host.ts'
+import { ConnectionAuthentication } from './authentication.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
+import type { ConnectionConfig } from './types.ts'
 
 export type {
+  AuthenticationProvider,
   PeerAdmission,
-  ConnectionAdmission,
   ConnectionFetchMethod,
   ConnectionFetchHandler,
   ConnectionFetchRoute,
-  ConnectionIndexRequest,
-  ConnectionIndexResponse,
   ConnectionRpcEndpointMatcher,
   ConnectionRpcAttachment,
   ConnectionRpcFailure,
   ConnectionRpcHandler,
   ConnectionRpcHandlerResult,
-  ConnectionRequestRejection,
   ConnectionRpcResult,
   ConnectionRequestBodyMode,
   ConnectionTrustRequest,
@@ -56,12 +52,7 @@ export type {
   ApiRequestTrustResult,
   TrustedApiRequestOptions,
 } from './api-request-trust.ts'
-export type {
-  BrowserAuthLogger,
-  BrowserAuthMode,
-  BrowserAuthOptions,
-  BrowserAuthResult,
-} from './browser-auth.ts'
+export { ConnectionAuthentication } from './authentication.ts'
 
 export { API_PATH } from './api-path.ts'
 
@@ -100,123 +91,65 @@ function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): voi
 }
 
 /** Services required before providing Connection. */
-export const inject = ['credentials']
+export const inject: string[] = []
 
-/** Browser authentication, request limits, and connection recovery configuration. */
-export interface ConnectionConfig {
-  /** Browser recovery timing, injected into each served page. */
-  recovery?: ConnectionRecoveryConfig
-  /**
-   * Authorities this deployment serves beyond loopback: exact `host:port`, or
-   * port-less `host` matching any port. The fence accepts loopback and the
-   * listener's own bind IP independently; other remote authorities require
-   * an entry here. A non-canonical or non-bare authority fails plugin load.
-   */
-  trustedHosts?: string[]
-  /** Absolute browser and API cookie lifetime in days. Default: 30. */
-  cookieMaxAgeDays?: number
-  /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
-  maxRequestBodyBytes?: number
-  /** Whether to trust standard X-Forwarded-Host and X-Forwarded-Proto reverse proxy headers. */
-  reverseProxy?: boolean
-  /**
-   * How browsers authenticate: `token` keeps the launch-token exchange and
-   * signed session cookie; `none` lets any request that passes the Host/Origin
-   * trust fence reach the UI and API with no token or cookie. The
-   * `DSH_AUTH_MODE` environment variable is the fallback when unset.
-   */
-  authMode?: 'token' | 'none'
-  /**
-   * Fixed access token served at `/?token=<value>`, replacing the random
-   * per-process launch token so the sign-in URL survives restarts. The
-   * `DSH_AUTH_TOKEN` environment variable is the fallback when unset.
-   */
-  authToken?: string
-}
+export type { ConnectionConfig } from './types.ts'
 
-export const Config: z<ConnectionConfig> = z.object({
-  recovery: ConnectionRecoveryConfigSchema.default({}),
+/** Host request limits and trusted authorities; `recovery` is synced to the browser. */
+export const Config: z<Omit<ConnectionConfig, 'recovery'> & { recovery?: ConnectionRecoveryConfig }, ConnectionConfig> = z.object({
+  recovery: ConnectionRecoveryConfigSchema.default({}).volatile(),
   trustedHosts: z.array(String).default([]),
-  cookieMaxAgeDays: z.natural().min(1).default(30),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
-  // Bare (optional) so the documented env fallbacks below reach the plugin
+  // Bare (optional) so the documented env fallback reaches the plugin
   // instead of being shadowed by a schema default the Loader always applies.
   reverseProxy: z.boolean(),
-  authMode: z.union([z.const('token'), z.const('none')]),
-  authToken: z.string(),
 })
 
 /**
  * Provides carrier-neutral RPC and Fetch registries. When `webServer` is
- * present, the plugin also mounts the `/api` browser transport with Host/Origin
- * checks and persistent browser authentication.
+ * present, the plugin applies Host/Origin checks and registered authentication
+ * to WebServer routes and mounts the `/api` browser transport.
  * @param ctx - Host plugin context.
  * @param config - resolved plugin config (schema defaults applied).
  */
-export async function apply(ctx: Context, config?: ConnectionConfig): Promise<void> {
-  const recovery = resolveConnectionConfig(config?.recovery)
+export function apply(ctx: Context, config?: ConnectionConfig): void {
+  // Config boundary: the schema admits a NaN backoff factor, which the synced Config projection cannot carry as lossless
+  // JSON; rejecting it at load keeps a row with an unprojectable recovery value off the graph.
+  resolveConnectionConfig(config?.recovery?.get())
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
-  const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   const reverseProxy = config?.reverseProxy ?? (process.env.DSH_REVERSE_PROXY === 'true' || process.env.DSH_REVERSE_PROXY === '1')
-  const authMode: BrowserAuthMode = config?.authMode ?? (process.env.DSH_AUTH_MODE === 'none' ? 'none' : 'token')
-  // A blank DSH_AUTH_TOKEN (the .env.example placeholder) means "not set";
-  // an explicit blank authToken in composition is a misconfiguration and fails below.
-  const envToken = process.env.DSH_AUTH_TOKEN?.trim()
-  const authToken = config?.authToken ?? (envToken === undefined || envToken === '' ? undefined : envToken)
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
-  if (config?.authToken !== undefined && config.authToken.trim() === '') {
-    throw new Error('client-connection: authToken must not be blank')
-  }
   assertImageBodyCapacity(ctx, maxRequestBodyBytes)
-  const connection = new HostConnectionService(
-    ctx,
-    trustedHosts,
-    await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays, reverseProxy, ctx.logger, {
-      mode: authMode,
-      ...authToken !== undefined && { fixedToken: authToken },
-    }),
-    reverseProxy,
-  )
-  if (authMode === 'none') {
-    const notice = 'client-connection: browser authentication is DISABLED (authMode "none"); every request whose Host/Origin passes the trust fence reaches the UI and its code-execution tools without a token'
-    ctx.logger.warn(notice)
-    console.warn(notice)
-  }
-  ctx.inject(['webServer'], (webCtx) => {
-    assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
-    webCtx.on('webserver/index-inject', (table) => {
-      table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
+  new ConnectionAuthentication(ctx)
+  ctx.inject(['connection.authentication'], (connectionCtx) => {
+    const connection = new HostConnectionService(connectionCtx, trustedHosts, reverseProxy)
+    connectionCtx.inject(['webServer'], (webCtx) => {
+      assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
       if (trustedHosts.length > 0) {
-        table.push({
-          kind: 'global',
-          name: '__DSH_TRUSTED_HOSTS__',
-          value: trustedHosts,
+        webCtx.on('webserver/index-inject', (table) => {
+          table.push({
+            kind: 'global',
+            name: '__DSH_TRUSTED_HOSTS__',
+            value: trustedHosts,
+          })
         })
       }
+      const fetchHandler = connection.createSharedFetchHandler(API_PATH)
+      const route: WebRoute = {
+        kind: 'prefix',
+        path: API_PATH,
+        auth: 'required',
+        handler: async (req, res, peer) => {
+          if (peer === undefined || res.destroyed) return
+          await webCtx.waterfall('connection/request', req, res, () => bridge(req, res, fetchHandler, peer, maxRequestBodyBytes))
+        },
+      }
+      webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')
     })
-    const fetchHandler = connection.createSharedFetchHandler(API_PATH)
-    const route: WebRoute = {
-      kind: 'prefix',
-      path: API_PATH,
-      handler: async (req, res) => {
-        const admission = connection.admit(req)
-        if ('rejection' in admission) {
-          res.writeHead(admission.rejection)
-          res.end(admission.rejection === 401 ? 'unauthorized' : 'forbidden')
-          return
-        }
-        await webCtx.waterfall('connection/request', req, res, () => bridge(req, res, fetchHandler, admission.peer, maxRequestBodyBytes))
-      },
-    }
-    webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')
-    webCtx.effect(() => webCtx.webServer.register({
-      kind: 'exact', path: CONNECT_PATH,
-      handler: (req, res) => { connection.authorizeConnect(req, res) },
-    }), 'client-connection: /connect route')
   })
   ctx.inject(['attachments'], (attachmentCtx) => {
     assertImageBodyCapacity(attachmentCtx, maxRequestBodyBytes)

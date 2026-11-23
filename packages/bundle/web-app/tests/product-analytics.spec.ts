@@ -37,7 +37,7 @@ it.each([
   onTestFinished(() => ctx.fiber.dispose())
   ctx.provide('profileContext', {
     name: profile, dir: '/profile', patchPath: '/profile/cordis.patch.yml', installAnchor: '/profile/package.json',
-    cwd: '/workspace', home: '/home', startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
+    cwd: '/workspace', home: '/home', startedBundles: [], overlayPaths: [], telemetryDisabledEnv: undefined,
   })
   const identity = vi.fn().mockResolvedValue(undefined)
   ctx.provide('deepseekAccount', { getDeviceIdentity: identity } as never)
